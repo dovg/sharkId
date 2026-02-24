@@ -3,6 +3,7 @@ const statusMap: Record<string, { label: string; cls: string }> = {
   processing:           { label: 'Processing', cls: 's-processing' },
   ready_for_validation: { label: 'Ready',      cls: 's-ready' },
   validated:            { label: 'Validated',  cls: 's-validated' },
+  done:                 { label: 'Done',       cls: 's-confirmed' },
   error:                { label: 'Error',      cls: 's-error' },
   temporary:            { label: 'Temporary',  cls: 's-temporary' },
   confirmed:            { label: 'Confirmed',  cls: 's-confirmed' },

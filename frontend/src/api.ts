@@ -8,6 +8,7 @@ import type {
   Photo,
   Shark,
   SharkDetail,
+  Video,
 } from './types'
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8000'
@@ -88,6 +89,15 @@ export const uploadPhoto = (sessionId: string, file: File) => {
   form.append('file', file)
   return req<Photo>(`/dive-sessions/${sessionId}/photos`, { method: 'POST', body: form })
 }
+
+export const uploadVideo = (sessionId: string, file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  return req<Video>(`/dive-sessions/${sessionId}/videos`, { method: 'POST', body: form })
+}
+
+export const getSessionVideos = (sessionId: string) =>
+  req<Video[]>(`/dive-sessions/${sessionId}/videos`)
 
 export const getPhoto = (id: string) => req<Photo>(`/photos/${id}`)
 

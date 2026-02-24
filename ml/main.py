@@ -7,6 +7,7 @@ from PIL import Image
 
 from classifier import find_candidates
 from detector import auto_detect, crop_zone, detect_snout
+from video import extract_shark_frames
 from embedder import extract_embedding
 from store import get_store
 
@@ -18,6 +19,41 @@ app = FastAPI(title="SharkID ML Service", version="0.1.0")
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ml", "embeddings": get_store().count()}
+
+
+@app.post("/process-video")
+async def process_video(request: Request):
+    """Accept raw video bytes; extract frames containing a shark and return them.
+
+    Pass the original MIME type in the Content-Type header so the correct
+    container format is used when writing the temp file for OpenCV.
+
+    Response::
+
+        {
+          "frames": [
+            {
+              "jpeg":          "<base64-encoded JPEG>",
+              "shark_bbox":    {x, y, w, h},
+              "zone_bbox":     {x, y, w, h},
+              "timestamp_sec": <float>,
+              "frame_index":   <int>
+            },
+            …
+          ],
+          "count": <int>
+        }
+
+    Frames where no shark is detected are silently dropped.
+    Returns an empty frames list when the video cannot be processed.
+    """
+    data = await request.body()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty video body")
+
+    content_type = request.headers.get("content-type", "video/mp4")
+    frames = extract_shark_frames(data, content_type)
+    return {"frames": frames, "count": len(frames)}
 
 
 @app.post("/detect")

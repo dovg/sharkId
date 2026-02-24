@@ -618,6 +618,28 @@ textarea { resize: vertical; min-height: 80px; }
 .auto-annot-section { margin-bottom: 16px; }
 .auto-annot-actions { margin-top: 4px; }
 
+/* ── Video list ──────────────────────────────────────── */
+.video-list { display: flex; flex-direction: column; gap: 0; }
+.video-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.video-item:last-child { border-bottom: none; }
+.video-item-icon { font-size: 22px; flex-shrink: 0; }
+.video-item-info { flex: 1; min-width: 0; }
+.video-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.video-item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.video-item-status { display: flex; align-items: center; flex-shrink: 0; }
+
 /* ── Photo lightbox ──────────────────────────────────── */
 .lightbox {
   position: fixed;

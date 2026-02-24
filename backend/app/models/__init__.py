@@ -7,6 +7,7 @@ from app.models.shark import Shark, NameStatus
 from app.models.dive_session import DiveSession
 from app.models.photo import Photo, ProcessingStatus
 from app.models.observation import Observation
+from app.models.video import Video, VideoStatus
 
 __all__ = [
     "User",
@@ -17,4 +18,6 @@ __all__ = [
     "Photo",
     "ProcessingStatus",
     "Observation",
+    "Video",
+    "VideoStatus",
 ]

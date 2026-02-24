@@ -79,6 +79,19 @@ export interface DiveSessionDetail extends DiveSession {
   observations: Observation[]
 }
 
+export type VideoStatus = 'uploaded' | 'processing' | 'done' | 'error'
+
+export interface Video {
+  id: string
+  object_key: string
+  content_type: string
+  size: number
+  uploaded_at: string
+  processing_status: VideoStatus
+  frames_extracted: number
+  dive_session_id: string | null
+}
+
 export interface Shark {
   id: string
   display_name: string
