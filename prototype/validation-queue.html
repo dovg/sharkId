@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SharkID — Validation Queue</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <a class="sidebar-logo" href="dive-sessions.html">🦈 SharkID</a>
+    <nav class="sidebar-nav">
+      <a href="dive-sessions.html" class="nav-item">
+        <span class="nav-item-icon">🤿</span><span class="nav-label">Dive Sessions</span>
+      </a>
+      <a href="validation-queue.html" class="nav-item active">
+        <span class="nav-item-icon">✅</span><span class="nav-label">Validation Queue</span>
+        <span class="badge">5</span>
+      </a>
+      <a href="sharks.html" class="nav-item">
+        <span class="nav-item-icon">🦈</span><span class="nav-label">Shark Catalog</span>
+      </a>
+      <a href="locations.html" class="nav-item">
+        <span class="nav-item-icon">📍</span><span class="nav-label">Locations</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="login.html" class="nav-item">↩ <span class="nav-label">Log Out</span></a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Validation Queue</div>
+        <div class="page-subtitle">5 photos awaiting identification review</div>
+      </div>
+      <div class="flex-gap8">
+        <span class="text-muted text-sm" style="align-self:center;">Photo 1 of 5</span>
+        <button class="btn btn-outline btn-sm" onclick="prevPhoto()" id="btn-prev" disabled>← Prev</button>
+        <button class="btn btn-outline btn-sm" onclick="nextPhoto()" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="validation-layout">
+
+        <!-- Left: photo -->
+        <div class="validation-photo-panel">
+          <div class="card">
+            <div class="card-body">
+              <div class="photo-preview-box">🦈</div>
+              <div class="flex-between mb8">
+                <span class="fw6 text-sm">IMG_4826.jpg</span>
+                <span class="text-muted text-sm">Mar 15, 2024 · 10:23</span>
+              </div>
+              <div class="kv-list" style="font-size:13px;">
+                <span class="kv-key">Session</span>
+                <a href="dive-session-detail.html" style="color:var(--blue);font-size:13px;">Tiger Beach, Mar 15</a>
+                <span class="kv-key">GPS</span>
+                <span class="kv-val">25.1234° N, 79.0234° W</span>
+                <span class="kv-key">Camera</span>
+                <span class="kv-val">Canon EOS 5D Mark IV</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: candidates + actions -->
+        <div>
+          <div class="card mb16">
+            <div class="card-header">
+              <span class="card-title">Auto-ID Results</span>
+              <span class="text-muted text-sm">Top 5 candidates</span>
+            </div>
+            <div class="card-body">
+
+              <!-- Candidate 1 (best) -->
+              <div class="candidate-item selected" id="c1" onclick="selectCandidate(1)">
+                <div class="candidate-rank rank-1">1</div>
+                <a href="shark-detail.html" class="candidate-thumb" title="View Emma">🦈</a>
+                <div class="candidate-info">
+                  <div class="candidate-name">Emma</div>
+                  <div class="candidate-score">Spotted pattern — 8 confirmed sightings</div>
+                  <div class="score-bar"><div class="score-fill" style="width:91%"></div></div>
+                </div>
+                <div class="score-pct">91%</div>
+              </div>
+
+              <!-- Candidate 2 -->
+              <div class="candidate-item" id="c2" onclick="selectCandidate(2)">
+                <div class="candidate-rank">2</div>
+                <div class="candidate-thumb" style="background:#c8dae0;">🦈</div>
+                <div class="candidate-info">
+                  <div class="candidate-name">Luna</div>
+                  <div class="candidate-score">Spotted pattern — 5 confirmed sightings</div>
+                  <div class="score-bar"><div class="score-fill" style="width:63%"></div></div>
+                </div>
+                <div class="score-pct" style="color:var(--muted);">63%</div>
+              </div>
+
+              <!-- Candidate 3 -->
+              <div class="candidate-item" id="c3" onclick="selectCandidate(3)">
+                <div class="candidate-rank">3</div>
+                <div class="candidate-thumb" style="background:#d8c8e0;">🦈</div>
+                <div class="candidate-info">
+                  <div class="candidate-name">Hermione</div>
+                  <div class="candidate-score">Spotted pattern — 3 confirmed sightings</div>
+                  <div class="score-bar"><div class="score-fill" style="width:41%"></div></div>
+                </div>
+                <div class="score-pct" style="color:var(--muted);">41%</div>
+              </div>
+
+              <!-- Candidate 4 -->
+              <div class="candidate-item" id="c4" onclick="selectCandidate(4)">
+                <div class="candidate-rank">4</div>
+                <div class="candidate-thumb" style="background:#dce8c8;">🦈</div>
+                <div class="candidate-info">
+                  <div class="candidate-name">Ginny</div>
+                  <div class="candidate-score">Spotted pattern — 2 confirmed sightings</div>
+                  <div class="score-bar"><div class="score-fill" style="width:28%"></div></div>
+                </div>
+                <div class="score-pct" style="color:var(--muted);">28%</div>
+              </div>
+
+              <!-- Candidate 5 -->
+              <div class="candidate-item" id="c5" onclick="selectCandidate(5)">
+                <div class="candidate-rank">5</div>
+                <div class="candidate-thumb" style="background:#e8d8c8;">🦈</div>
+                <div class="candidate-info">
+                  <div class="candidate-name">Bellatrix</div>
+                  <div class="candidate-score">Spotted pattern — 1 confirmed sighting</div>
+                  <div class="score-bar"><div class="score-fill" style="width:17%"></div></div>
+                </div>
+                <div class="score-pct" style="color:var(--muted);">17%</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Decision</span>
+            </div>
+            <div class="card-body">
+              <p class="text-muted text-sm mb16">
+                Select a candidate above, then confirm — or choose another action below.
+              </p>
+              <div class="action-buttons">
+                <button class="btn btn-success" onclick="confirmCandidate()">
+                  ✓ Confirm Selected
+                </button>
+                <button class="btn btn-outline" onclick="openSharkPicker()">
+                  🔍 Select Other Shark
+                </button>
+                <button class="btn btn-teal" onclick="openNewSharkModal()">
+                  + Create New Shark
+                </button>
+                <button class="btn btn-ghost" onclick="skipPhoto()">
+                  — Leave Unlinked
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /right -->
+      </div><!-- /validation-layout -->
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- New Shark Modal -->
+<div class="modal-overlay" id="new-shark-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Create New Shark</span>
+      <button class="modal-close" onclick="closeModal('new-shark-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted text-sm mb16">
+        No existing match found above the confidence threshold. You're registering a new individual.
+      </p>
+      <div class="form-group">
+        <label>Suggested Name</label>
+        <div class="flex-gap8">
+          <input type="text" id="shark-name-input" value="Nymphadora" style="flex:1;">
+          <button class="btn btn-outline btn-sm" onclick="suggestName()">🔄 New suggestion</button>
+        </div>
+        <div class="form-hint">
+          Name status: <span class="status s-temporary" style="vertical-align:middle;">temporary</span>
+          &nbsp;— can be changed later.
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Set as profile photo?</label>
+        <div class="flex-gap8" style="align-items:center; margin-top:4px;">
+          <div style="width:80px;height:60px;background:#c8d8e8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid var(--border);">🦈</div>
+          <label style="text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--text);">
+            <input type="checkbox" checked style="width:auto;margin-right:6px;">
+            Use this photo as the primary profile photo
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('new-shark-modal')">Cancel</button>
+      <button class="btn btn-teal" onclick="createNewShark()">Create Shark &amp; Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shark Picker Modal -->
+<div class="modal-overlay" id="shark-picker-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Select Shark</span>
+      <button class="modal-close" onclick="closeModal('shark-picker-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="search-input mb16" style="display:block;">
+        <input type="text" placeholder="Search by name…" oninput="filterSharks(this.value)" id="shark-search">
+      </div>
+      <div id="shark-list" style="max-height:320px;overflow-y:auto;">
+        <div class="candidate-item" onclick="pickShark('Emma')">
+          <div class="candidate-thumb">🦈</div>
+          <div class="candidate-info">
+            <div class="candidate-name">Emma</div>
+            <div class="candidate-score">8 sightings · Last seen Mar 15, 2024</div>
+          </div>
+        </div>
+        <div class="candidate-item" onclick="pickShark('Luna')">
+          <div class="candidate-thumb" style="background:#c8dae0;">🦈</div>
+          <div class="candidate-info">
+            <div class="candidate-name">Luna</div>
+            <div class="candidate-score">5 sightings · Last seen Mar 12, 2024</div>
+          </div>
+        </div>
+        <div class="candidate-item" onclick="pickShark('Hermione')">
+          <div class="candidate-thumb" style="background:#d8c8e0;">🦈</div>
+          <div class="candidate-info">
+            <div class="candidate-name">Hermione</div>
+            <div class="candidate-score">3 sightings · Last seen Feb 24, 2024</div>
+          </div>
+        </div>
+        <div class="candidate-item" onclick="pickShark('Ginny')">
+          <div class="candidate-thumb" style="background:#dce8c8;">🦈</div>
+          <div class="candidate-info">
+            <div class="candidate-name">Ginny</div>
+            <div class="candidate-score">2 sightings · Last seen Feb 08, 2024</div>
+          </div>
+        </div>
+        <div class="candidate-item" onclick="pickShark('Bellatrix')">
+          <div class="candidate-thumb" style="background:#e8d8c8;">🦈</div>
+          <div class="candidate-info">
+            <div class="candidate-name">Bellatrix</div>
+            <div class="candidate-score">1 sighting · Last seen Jan 30, 2024</div>
+          </div>
+        </div>
+        <div class="candidate-item" onclick="pickShark('Molly')">
+          <div class="candidate-thumb" style="background:#c8e0d0;">🦈</div>
+          <div class="candidate-info">
+            <div class="candidate-name">Molly</div>
+            <div class="candidate-score">4 sightings · Last seen Mar 08, 2024</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('shark-picker-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const names = ['Nymphadora','Fleur','Lavender','Parvati','Pansy','Padma','Millicent','Cho','Marietta','Romilda'];
+  let nameIdx = 0;
+
+  function selectCandidate(n) {
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById('c' + i).classList.toggle('selected', i === n);
+    }
+  }
+
+  function confirmCandidate() {
+    alert('Observation confirmed for Emma. Moving to next photo…');
+    nextPhoto();
+  }
+
+  function openNewSharkModal() { document.getElementById('new-shark-modal').classList.add('open'); }
+  function openSharkPicker()   { document.getElementById('shark-picker-modal').classList.add('open'); }
+  function closeModal(id)      { document.getElementById(id).classList.remove('open'); }
+
+  function suggestName() {
+    nameIdx = (nameIdx + 1) % names.length;
+    document.getElementById('shark-name-input').value = names[nameIdx];
+  }
+
+  function createNewShark() {
+    const name = document.getElementById('shark-name-input').value || 'Unnamed';
+    alert(`New shark "${name}" created and observation confirmed!`);
+    closeModal('new-shark-modal');
+    nextPhoto();
+  }
+
+  function pickShark(name) {
+    alert(`Linked to ${name}. Observation confirmed.`);
+    closeModal('shark-picker-modal');
+    nextPhoto();
+  }
+
+  function skipPhoto() {
+    if (confirm('Leave this photo without a shark link?')) nextPhoto();
+  }
+
+  let current = 1;
+  const total  = 5;
+  function nextPhoto() {
+    if (current < total) {
+      current++;
+      updateNav();
+    } else {
+      window.location.href = 'dive-sessions.html';
+    }
+  }
+  function prevPhoto() {
+    if (current > 1) { current--; updateNav(); }
+  }
+  function updateNav() {
+    document.querySelector('.page-subtitle').textContent = `${total - current + 1} photos awaiting identification review`;
+    document.querySelector('.text-sm[style*="align-self"]').textContent = `Photo ${current} of ${total}`;
+    document.getElementById('btn-prev').disabled = current === 1;
+    document.getElementById('btn-next').disabled = current === total;
+  }
+
+  function filterSharks(q) {
+    const items = document.querySelectorAll('#shark-list .candidate-item');
+    items.forEach(item => {
+      const name = item.querySelector('.candidate-name').textContent.toLowerCase();
+      item.style.display = name.includes(q.toLowerCase()) ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>

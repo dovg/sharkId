@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SharkID — Session Detail</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <a class="sidebar-logo" href="dive-sessions.html">🦈 SharkID</a>
+    <nav class="sidebar-nav">
+      <a href="dive-sessions.html" class="nav-item active">
+        <span class="nav-item-icon">🤿</span><span class="nav-label">Dive Sessions</span>
+      </a>
+      <a href="validation-queue.html" class="nav-item">
+        <span class="nav-item-icon">✅</span><span class="nav-label">Validation Queue</span>
+        <span class="badge">5</span>
+      </a>
+      <a href="sharks.html" class="nav-item">
+        <span class="nav-item-icon">🦈</span><span class="nav-label">Shark Catalog</span>
+      </a>
+      <a href="locations.html" class="nav-item">
+        <span class="nav-item-icon">📍</span><span class="nav-label">Locations</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="login.html" class="nav-item">↩ <span class="nav-label">Log Out</span></a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Tiger Beach, Bahamas</div>
+        <div class="page-subtitle">
+          <a href="dive-sessions.html" style="color:var(--muted); text-decoration:none;">Dive Sessions</a>
+          &nbsp;/&nbsp; March 15, 2024
+        </div>
+      </div>
+      <div class="flex-gap8">
+        <button class="btn btn-outline btn-sm">Edit Session</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Session info -->
+      <div class="card mb16">
+        <div class="card-body">
+          <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:20px; margin-bottom:16px;">
+            <div class="stat">
+              <span class="stat-val">09:00</span>
+              <span class="stat-lbl">Start</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val">11:30</span>
+              <span class="stat-lbl">End</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val">18</span>
+              <span class="stat-lbl">Photos</span>
+            </div>
+            <div class="stat">
+              <span class="stat-val">4</span>
+              <span class="stat-lbl">Observations</span>
+            </div>
+          </div>
+          <div class="text-muted text-sm">
+            📝 Excellent visibility ~25 m. Emma and Stripe encountered near the bait ball. New individual photographed — pending ID.
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="card mb16">
+        <div class="card-header">
+          <span class="card-title">Photos</span>
+          <div class="flex-gap8">
+            <span class="text-muted text-sm">18 photos · 5 pending validation</span>
+            <label class="btn btn-primary btn-sm" style="cursor:pointer;">
+              Upload Photos
+              <input type="file" multiple accept="image/jpeg,image/png" style="display:none" onchange="handleUpload(this)">
+            </label>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="dropzone" id="dropzone" onclick="document.querySelector('[type=file]').click()"
+               ondragover="event.preventDefault(); this.classList.add('hover')"
+               ondragleave="this.classList.remove('hover')"
+               ondrop="event.preventDefault(); this.classList.remove('hover')">
+            <div class="dropzone-icon">📷</div>
+            <p>Drop photos here or click to browse</p>
+            <small>JPEG and PNG · Multiple files supported</small>
+          </div>
+
+          <div class="photo-grid">
+
+            <a href="observation-detail.html" class="photo-card">
+              <div class="photo-thumb t-green">🦈</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4821.jpg</div>
+                <span class="status s-ready">Ready</span>
+              </div>
+            </a>
+
+            <a href="observation-detail.html" class="photo-card">
+              <div class="photo-thumb t-teal" style="background:#b8dfe0;">🦈</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4822.jpg</div>
+                <span class="status s-confirmed">Confirmed</span>
+              </div>
+            </a>
+
+            <a href="observation-detail.html" class="photo-card">
+              <div class="photo-thumb" style="background:#bdd0e0;">🦈</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4823.jpg</div>
+                <span class="status s-confirmed">Confirmed</span>
+              </div>
+            </a>
+
+            <div class="photo-card">
+              <div class="photo-thumb t-orange">⏳</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4824.jpg</div>
+                <span class="status s-processing">Processing</span>
+              </div>
+            </div>
+
+            <div class="photo-card">
+              <div class="photo-thumb t-orange">⏳</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4825.jpg</div>
+                <span class="status s-processing">Processing</span>
+              </div>
+            </div>
+
+            <a href="validation-queue.html" class="photo-card">
+              <div class="photo-thumb t-green">🦈</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4826.jpg</div>
+                <span class="status s-ready">Ready</span>
+              </div>
+            </a>
+
+            <a href="validation-queue.html" class="photo-card">
+              <div class="photo-thumb" style="background:#c8d0e8;">🦈</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4827.jpg</div>
+                <span class="status s-ready">Ready</span>
+              </div>
+            </a>
+
+            <div class="photo-card">
+              <div class="photo-thumb t-red">⚠️</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4828.jpg</div>
+                <span class="status s-error">Error</span>
+              </div>
+            </div>
+
+            <div class="photo-card">
+              <div class="photo-thumb" style="background:#d8d8d8; color:#aaa;">📷</div>
+              <div class="photo-meta">
+                <div class="text-sm fw6">IMG_4829.jpg</div>
+                <span class="status s-uploaded">Uploaded</span>
+              </div>
+            </div>
+
+          </div><!-- /photo-grid -->
+        </div>
+      </div>
+
+      <!-- Observations -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Observations</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Shark</th>
+              <th>Time</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="shark-detail.html">Emma</a></td>
+              <td>09:14</td>
+              <td>Tiger Beach, Bahamas</td>
+              <td><span class="status s-confirmed">Confirmed</span></td>
+              <td><a href="observation-detail.html">View</a></td>
+            </tr>
+            <tr>
+              <td><a href="shark-detail.html">Stripe</a></td>
+              <td>09:47</td>
+              <td>Tiger Beach, Bahamas</td>
+              <td><span class="status s-confirmed">Confirmed</span></td>
+              <td><a href="observation-detail.html">View</a></td>
+            </tr>
+            <tr>
+              <td><span class="text-muted">Unidentified</span></td>
+              <td>10:23</td>
+              <td>Tiger Beach, Bahamas</td>
+              <td><span class="status s-draft">Draft</span></td>
+              <td><a href="observation-detail.html">Edit</a></td>
+            </tr>
+            <tr>
+              <td><a href="shark-detail.html">Luna</a></td>
+              <td>11:05</td>
+              <td>Tiger Beach, Bahamas</td>
+              <td><span class="status s-confirmed">Confirmed</span></td>
+              <td><a href="observation-detail.html">View</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div>
+
+<script>
+  function handleUpload(input) {
+    if (input.files.length > 0) {
+      alert(`${input.files.length} photo(s) uploaded. Classification started automatically.`);
+    }
+  }
+</script>
+</body>
+</html>

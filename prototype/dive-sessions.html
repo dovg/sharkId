@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SharkID — Dive Sessions</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <a class="sidebar-logo" href="dive-sessions.html">
+      <span>🦈</span> SharkID
+    </a>
+    <nav class="sidebar-nav">
+      <a href="dive-sessions.html" class="nav-item active">
+        <span class="nav-item-icon">🤿</span>
+        <span class="nav-label">Dive Sessions</span>
+      </a>
+      <a href="validation-queue.html" class="nav-item">
+        <span class="nav-item-icon">✅</span>
+        <span class="nav-label">Validation Queue</span>
+        <span class="badge">5</span>
+      </a>
+      <a href="sharks.html" class="nav-item">
+        <span class="nav-item-icon">🦈</span>
+        <span class="nav-label">Shark Catalog</span>
+      </a>
+      <a href="locations.html" class="nav-item">
+        <span class="nav-item-icon">📍</span>
+        <span class="nav-label">Locations</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="login.html" class="nav-item">
+        <span class="nav-item-icon">↩</span>
+        <span class="nav-label">Log Out</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dive Sessions</div>
+        <div class="page-subtitle">Your recent dives and photo collections</div>
+      </div>
+      <button class="btn btn-primary" onclick="toggleForm()">+ New Session</button>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Create session form -->
+      <div class="inline-form" id="create-form">
+        <div class="fw6 mb16">New Dive Session</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Location</label>
+            <select>
+              <option value="">Select a location…</option>
+              <option selected>Tiger Beach, Bahamas</option>
+              <option>Fuvahmulah Atoll, Maldives</option>
+              <option>Aliwal Shoal, South Africa</option>
+              <option>North Shore, Hawaii</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="datetime-local" value="2024-03-15T09:00">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Start Time</label>
+            <input type="datetime-local" value="2024-03-15T09:00">
+          </div>
+          <div class="form-group">
+            <label>End Time</label>
+            <input type="datetime-local" value="2024-03-15T11:30">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Comment</label>
+          <textarea placeholder="Visibility, conditions, notable observations…"></textarea>
+        </div>
+        <div class="flex-gap8">
+          <button class="btn btn-primary" onclick="submitSession()">Create Session</button>
+          <button class="btn btn-outline" onclick="toggleForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Session list -->
+      <div class="session-list">
+
+        <a href="dive-session-detail.html" class="session-item">
+          <div class="session-date-block">
+            <div class="day">15</div>
+            <div class="month">Mar 2024</div>
+          </div>
+          <div class="session-info">
+            <div class="session-title">Tiger Beach, Bahamas</div>
+            <div class="session-meta">09:00 – 11:30 &nbsp;·&nbsp; 2 h 30 min &nbsp;·&nbsp; Excellent visibility, calm surface</div>
+          </div>
+          <div class="session-counts">
+            <div class="count-item">
+              <div class="count-num">18</div>
+              <div class="count-lbl">Photos</div>
+            </div>
+            <div class="count-item">
+              <div class="count-num">4</div>
+              <div class="count-lbl">Observations</div>
+            </div>
+          </div>
+        </a>
+
+        <a href="dive-session-detail.html" class="session-item">
+          <div class="session-date-block">
+            <div class="day">12</div>
+            <div class="month">Mar 2024</div>
+          </div>
+          <div class="session-info">
+            <div class="session-title">Tiger Beach, Bahamas</div>
+            <div class="session-meta">08:15 – 10:45 &nbsp;·&nbsp; 2 h 30 min &nbsp;·&nbsp; Strong current, 20 m visibility</div>
+          </div>
+          <div class="session-counts">
+            <div class="count-item">
+              <div class="count-num">31</div>
+              <div class="count-lbl">Photos</div>
+            </div>
+            <div class="count-item">
+              <div class="count-num">7</div>
+              <div class="count-lbl">Observations</div>
+            </div>
+          </div>
+        </a>
+
+        <a href="dive-session-detail.html" class="session-item">
+          <div class="session-date-block">
+            <div class="day">08</div>
+            <div class="month">Mar 2024</div>
+          </div>
+          <div class="session-info">
+            <div class="session-title">Fuvahmulah Atoll, Maldives</div>
+            <div class="session-meta">07:00 – 09:15 &nbsp;·&nbsp; 2 h 15 min &nbsp;·&nbsp; Pelagic zone, deep water</div>
+          </div>
+          <div class="session-counts">
+            <div class="count-item">
+              <div class="count-num">24</div>
+              <div class="count-lbl">Photos</div>
+            </div>
+            <div class="count-item">
+              <div class="count-num">3</div>
+              <div class="count-lbl">Observations</div>
+            </div>
+          </div>
+        </a>
+
+        <a href="dive-session-detail.html" class="session-item">
+          <div class="session-date-block">
+            <div class="day">02</div>
+            <div class="month">Mar 2024</div>
+          </div>
+          <div class="session-info">
+            <div class="session-title">Aliwal Shoal, South Africa</div>
+            <div class="session-meta">10:30 – 12:00 &nbsp;·&nbsp; 1 h 30 min &nbsp;·&nbsp; Overcast, 12 m visibility</div>
+          </div>
+          <div class="session-counts">
+            <div class="count-item">
+              <div class="count-num">9</div>
+              <div class="count-lbl">Photos</div>
+            </div>
+            <div class="count-item">
+              <div class="count-num">2</div>
+              <div class="count-lbl">Observations</div>
+            </div>
+          </div>
+        </a>
+
+        <a href="dive-session-detail.html" class="session-item">
+          <div class="session-date-block">
+            <div class="day">24</div>
+            <div class="month">Feb 2024</div>
+          </div>
+          <div class="session-info">
+            <div class="session-title">Tiger Beach, Bahamas</div>
+            <div class="session-meta">09:00 – 12:30 &nbsp;·&nbsp; 3 h 30 min &nbsp;·&nbsp; Exceptional encounter, 6 sharks</div>
+          </div>
+          <div class="session-counts">
+            <div class="count-item">
+              <div class="count-num">47</div>
+              <div class="count-lbl">Photos</div>
+            </div>
+            <div class="count-item">
+              <div class="count-num">9</div>
+              <div class="count-lbl">Observations</div>
+            </div>
+          </div>
+        </a>
+
+      </div><!-- /session-list -->
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+  function toggleForm() {
+    const f = document.getElementById('create-form');
+    f.classList.toggle('open');
+  }
+  function submitSession() {
+    document.getElementById('create-form').classList.remove('open');
+  }
+</script>
+</body>
+</html>

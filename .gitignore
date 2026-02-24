@@ -1,0 +1,49 @@
+# ── Secrets & local config ────────────────────────────────
+.env
+!.env.example
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── ML runtime data ───────────────────────────────────────
+ml/data/*.pkl
+ml/data/*.pt
+ml/data/*.pth
+ml/data/*.bin
+!ml/data/.gitkeep
+
+# ── Node / Frontend ───────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# ── Docker local volumes ──────────────────────────────────
+.postgres_data/
+.minio_data/
+
+# ── DB dumps / backups ────────────────────────────────────
+*.sql.gz
+*.dump
+
+# ── OS / editor ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
