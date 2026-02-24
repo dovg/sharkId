@@ -48,9 +48,11 @@ class Photo(Base):
     # shark_bbox: {x, y, w, h} normalised 0-1, relative to the full image
     # zone_bbox:  {x, y, w, h} normalised 0-1, relative to the shark crop
     # orientation: "face_left" | "face_right"
+    # auto_detected: True while bbox was set by ML and awaits user confirmation
     shark_bbox: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     zone_bbox: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     orientation: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    auto_detected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relations
     dive_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(

@@ -47,6 +47,7 @@ export interface Photo {
   shark_bbox: BBox | null
   zone_bbox: BBox | null
   orientation: Orientation | null
+  auto_detected: boolean
   url: string | null
 }
 

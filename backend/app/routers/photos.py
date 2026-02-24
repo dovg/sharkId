@@ -69,21 +69,34 @@ def _classify_photo(photo_id: UUID) -> None:
         obj = s3.get_object(Bucket=settings.minio_bucket, Key=photo.object_key)
         image_data = obj["Body"].read()
 
-        # Build bbox params if the photo has been annotated
-        ml_params: dict = {}
-        if photo.shark_bbox and photo.zone_bbox:
-            sb, zb = photo.shark_bbox, photo.zone_bbox
-            ml_params = {
-                "shark_x": sb["x"], "shark_y": sb["y"],
-                "shark_w": sb["w"], "shark_h": sb["h"],
-                "zone_x":  zb["x"], "zone_y":  zb["y"],
-                "zone_w":  zb["w"], "zone_h":  zb["h"],
-            }
-        if photo.orientation:
-            ml_params["orientation"] = photo.orientation
-
-        # Call ML service
         with httpx.Client(timeout=30.0) as http:
+            # Step 1: auto-detect bboxes when no annotation exists yet
+            if not photo.shark_bbox or not photo.zone_bbox:
+                det = http.post(
+                    f"{settings.ml_service_url}/detect",
+                    content=image_data,
+                    headers={"Content-Type": photo.content_type},
+                )
+                detected = det.json()
+                if detected.get("shark_bbox") and detected.get("zone_bbox"):
+                    photo.shark_bbox = detected["shark_bbox"]
+                    photo.zone_bbox = detected["zone_bbox"]
+                    photo.auto_detected = True
+                    db.commit()
+
+            # Step 2: classify using bboxes (auto-detected or user-annotated)
+            ml_params: dict = {}
+            if photo.shark_bbox and photo.zone_bbox:
+                sb, zb = photo.shark_bbox, photo.zone_bbox
+                ml_params = {
+                    "shark_x": sb["x"], "shark_y": sb["y"],
+                    "shark_w": sb["w"], "shark_h": sb["h"],
+                    "zone_x":  zb["x"], "zone_y":  zb["y"],
+                    "zone_w":  zb["w"], "zone_h":  zb["h"],
+                }
+            if photo.orientation:
+                ml_params["orientation"] = photo.orientation
+
             resp = http.post(
                 f"{settings.ml_service_url}/classify",
                 content=image_data,
@@ -256,6 +269,7 @@ async def annotate_photo(
     photo.shark_bbox = body.shark_bbox.model_dump()
     photo.zone_bbox = body.zone_bbox.model_dump()
     photo.orientation = body.orientation
+    photo.auto_detected = False   # user has now reviewed / confirmed the annotation
     photo.processing_status = ProcessingStatus.processing
     photo.top5_candidates = None
     db.commit()

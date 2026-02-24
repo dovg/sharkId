@@ -7,7 +7,12 @@ frame, where a diver typically aims the camera) rather than a learned detector.
 This is fast, deterministic, and good enough for the MVP.
 """
 
+from io import BytesIO
+from typing import Optional
+
+import numpy as np
 from PIL import Image
+from scipy import ndimage
 
 # Fraction of image dimensions to crop (fallback when no annotation exists)
 _X0, _X1 = 0.20, 0.80
@@ -23,6 +28,86 @@ def detect_snout(img: Image.Image) -> Image.Image:
     w, h = img.size
     box = (int(w * _X0), int(h * _Y0), int(w * _X1), int(h * _Y1))
     return img.crop(box).resize(SNOUT_SIZE, Image.LANCZOS)
+
+
+def auto_detect(img_bytes: bytes) -> Optional[dict]:
+    """Heuristic shark + zone detection for underwater photos.
+
+    Strategy:
+      1. Downsample for speed.
+      2. Estimate background colour from border pixels (water at the edges).
+      3. Threshold pixels with high distance from background.
+      4. Morphological closing to fill holes, then isolate the largest
+         connected component (the shark body).
+      5. Return its bounding box as shark_bbox (0-1 normalised).
+      6. zone_bbox is a fixed heuristic region within the shark crop —
+         the right-centre area where the identification pattern lives.
+
+    Returns {"shark_bbox": {x,y,w,h}, "zone_bbox": {x,y,w,h}} or None.
+    """
+    try:
+        img = Image.open(BytesIO(img_bytes)).convert("RGB")
+    except Exception:
+        return None
+
+    # Downsample to ≤300px on the longest side for speed
+    w, h = img.size
+    scale = min(300 / w, 300 / h, 1.0)
+    sw, sh = max(1, int(w * scale)), max(1, int(h * scale))
+    small = img.resize((sw, sh), Image.LANCZOS)
+    arr = np.array(small, dtype=np.float32)  # (sh, sw, 3)
+
+    # Background colour = median of all border pixels
+    border = np.concatenate([
+        arr[0, :],       # top row
+        arr[-1, :],      # bottom row
+        arr[1:-1, 0],    # left column
+        arr[1:-1, -1],   # right column
+    ], axis=0)
+    bg = np.median(border, axis=0)
+
+    # Per-pixel Euclidean distance from background
+    diff = np.sqrt(np.sum((arr - bg) ** 2, axis=2))
+
+    # Binary mask: pixels that stand out from background
+    threshold = diff.mean() + 0.8 * diff.std()
+    mask = diff > threshold
+
+    # Morphological closing to fill internal holes
+    struct = ndimage.generate_binary_structure(2, 2)
+    mask = ndimage.binary_closing(mask, structure=struct, iterations=3)
+
+    # Largest connected component = the shark
+    labeled, n = ndimage.label(mask)
+    if n == 0:
+        return None
+    sizes = ndimage.sum(mask, labeled, range(1, n + 1))
+    shark_mask = labeled == (int(np.argmax(sizes)) + 1)
+
+    rows = np.where(shark_mask.any(axis=1))[0]
+    cols = np.where(shark_mask.any(axis=0))[0]
+    if len(rows) < 4 or len(cols) < 4:
+        return None
+
+    pad = 0.04
+    y1 = max(0.0, rows[0]  / sh - pad)
+    y2 = min(1.0, rows[-1] / sh + pad)
+    x1 = max(0.0, cols[0]  / sw - pad)
+    x2 = min(1.0, cols[-1] / sw + pad)
+    bw, bh = x2 - x1, y2 - y1
+
+    # Reject near-full-frame or tiny detections
+    if bw < 0.10 or bh < 0.05 or bw > 0.95 or bh > 0.95:
+        return None
+
+    shark_bbox = {"x": round(x1, 4), "y": round(y1, 4),
+                  "w": round(bw, 4), "h": round(bh, 4)}
+
+    # Zone: identification area between mouth and dorsal fin —
+    # heuristic right-centre portion of the shark crop (35-85% x, 5-55% y)
+    zone_bbox = {"x": 0.35, "y": 0.05, "w": 0.50, "h": 0.50}
+
+    return {"shark_bbox": shark_bbox, "zone_bbox": zone_bbox}
 
 
 def crop_zone(

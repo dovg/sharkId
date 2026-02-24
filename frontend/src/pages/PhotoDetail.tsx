@@ -62,7 +62,11 @@ export default function PhotoDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // annotation state
+  // auto-annotation confirmation state
+  const [confirmOrientation, setConfirmOrientation] = useState<Orientation | null>(null)
+  const [confirming, setConfirming] = useState(false)
+
+  // manual annotation state
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [sharkRect, setSharkRect] = useState<BBox | null>(null)
   const [zoneRect, setZoneRect] = useState<BBox | null>(null)
@@ -141,7 +145,27 @@ export default function PhotoDetail() {
     setLiveRect(null)
   }
 
-  // ── submit ──────────────────────────────────────────────────────────────────
+  // ── confirm auto-detected annotation ────────────────────────────────────────
+
+  const handleConfirmAuto = async () => {
+    if (!photo?.shark_bbox || !photo?.zone_bbox || !confirmOrientation) return
+    setConfirming(true)
+    setError('')
+    try {
+      const updated = await annotatePhoto(photo.id, {
+        shark_bbox: photo.shark_bbox,
+        zone_bbox: photo.zone_bbox,
+        orientation: confirmOrientation,
+      })
+      setPhoto(updated)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Confirmation failed')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  // ── submit manual annotation ─────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (!photo || !sharkRect || !zoneRect || !orientation) return
@@ -210,6 +234,80 @@ export default function PhotoDetail() {
 
         <div className="page-body">
           {error && <div className="alert-error mb16">{error}</div>}
+
+          {/* ── Auto-annotation confirmation banner ── */}
+          {photo.auto_detected && photo.shark_bbox && photo.zone_bbox && photo.url && (
+            <div className="card auto-annot-card mb16">
+              <div className="auto-annot-header">
+                <span className="auto-annot-badge">🤖 Auto-detected</span>
+                <span>ML detected the shark and identification zone. Review the highlighted regions, pick orientation, then confirm.</span>
+              </div>
+
+              {/* Photo preview with both rects overlaid */}
+              <div className="annot-photo-wrap auto-annot-preview">
+                <img src={photo.url} alt="" draggable={false} />
+                <svg className="annot-svg" viewBox="0 0 1 1" preserveAspectRatio="none"
+                  style={{ cursor: 'default', pointerEvents: 'none' }}>
+                  {/* shark rect — teal */}
+                  <rect
+                    x={photo.shark_bbox.x} y={photo.shark_bbox.y}
+                    width={photo.shark_bbox.w} height={photo.shark_bbox.h}
+                    fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003"
+                  />
+                  {/* zone rect — converted from shark-relative to image-relative — orange */}
+                  <rect
+                    x={photo.shark_bbox.x + photo.zone_bbox.x * photo.shark_bbox.w}
+                    y={photo.shark_bbox.y + photo.zone_bbox.y * photo.shark_bbox.h}
+                    width={photo.zone_bbox.w * photo.shark_bbox.w}
+                    height={photo.zone_bbox.h * photo.shark_bbox.h}
+                    fill="rgba(255,140,0,0.15)" stroke="#ff8c00" strokeWidth="0.003"
+                  />
+                </svg>
+              </div>
+
+              {/* Legend */}
+              <div className="auto-annot-legend">
+                <span className="legend-dot teal" /> Shark body
+                <span className="legend-dot orange" style={{ marginLeft: 16 }} /> Identification zone
+              </div>
+
+              {/* Orientation picker */}
+              <div className="auto-annot-section">
+                <div className="form-label mb8">Which way is the shark facing?</div>
+                <div className="orientation-grid">
+                  <button
+                    className={`orientation-btn${confirmOrientation === 'face_left' ? ' selected' : ''}`}
+                    onClick={() => setConfirmOrientation('face_left')}
+                  >← Face Left</button>
+                  <button
+                    className={`orientation-btn${confirmOrientation === 'face_right' ? ' selected' : ''}`}
+                    onClick={() => setConfirmOrientation('face_right')}
+                  >Face Right →</button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex-gap8 auto-annot-actions">
+                <button
+                  className="btn btn-teal btn-sm"
+                  disabled={!confirmOrientation || confirming}
+                  onClick={handleConfirmAuto}
+                >
+                  {confirming ? 'Saving…' : '✓ Confirm Annotation'}
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => {
+                    setSharkRect(photo.shark_bbox)
+                    setZoneRect(photo.zone_bbox)
+                    setStep(1)
+                  }}
+                >
+                  Edit Manually
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid2" style={{ alignItems: 'start' }}>
 
@@ -366,11 +464,11 @@ export default function PhotoDetail() {
                   </div>
 
                   {/* Existing annotation summary */}
-                  {photo.shark_bbox && (
+                  {photo.shark_bbox && !photo.auto_detected && (
                     <div className="muted" style={{ marginTop: 16, fontSize: 12 }}>
                       {photo.orientation
-                        ? `Last annotated · ${photo.orientation === 'face_left' ? '← face left' : 'face right →'}`
-                        : 'Previously annotated'}
+                        ? `Annotated · ${photo.orientation === 'face_left' ? '← face left' : 'face right →'}`
+                        : 'Annotated (no orientation)'}
                     </div>
                   )}
                 </div>

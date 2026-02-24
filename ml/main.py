@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from PIL import Image
 
 from classifier import find_candidates
-from detector import crop_zone, detect_snout
+from detector import auto_detect, crop_zone, detect_snout
 from embedder import extract_embedding
 from store import get_store
 
@@ -18,6 +18,24 @@ app = FastAPI(title="SharkID ML Service", version="0.1.0")
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ml", "embeddings": get_store().count()}
+
+
+@app.post("/detect")
+async def detect_shark(request: Request):
+    """Accept raw image bytes; return auto-detected shark and zone bounding boxes.
+
+    Response: {"shark_bbox": {x,y,w,h} | null, "zone_bbox": {x,y,w,h} | null}
+    All coordinates normalised 0-1. zone_bbox is relative to shark_bbox.
+    Returns null values when detection fails (no clear subject found).
+    """
+    data = await request.body()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty image body")
+
+    result = auto_detect(data)
+    if result:
+        return result
+    return {"shark_bbox": None, "zone_bbox": None}
 
 
 @app.post("/classify")
