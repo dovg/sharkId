@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getSharks, getValidationQueue, suggestSharkName, validatePhoto } from '../api'
 import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
@@ -103,6 +103,17 @@ export default function ValidationQueue() {
   const filteredSharks = sharks.filter(s =>
     s.display_name.toLowerCase().includes(sharkSearch.toLowerCase()),
   )
+
+  const handleKey = useCallback((e: KeyboardEvent) => {
+    if (showNewShark || showPicker || lightboxUrl) return
+    if (e.key === 'ArrowLeft')  setIdx(i => Math.max(i - 1, 0))
+    if (e.key === 'ArrowRight') setIdx(i => Math.min(i + 1, total - 1))
+  }, [showNewShark, showPicker, lightboxUrl, total])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [handleKey])
 
   if (loading)
     return (
