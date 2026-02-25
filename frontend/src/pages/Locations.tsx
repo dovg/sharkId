@@ -8,9 +8,11 @@ import {
 import { useAuth } from '../auth'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
+import { usePageTitle } from '../hooks'
 import type { Location } from '../types'
 
 export default function Locations() {
+  usePageTitle('Locations')
   const { role } = useAuth()
   const canEdit = role !== 'viewer'
   const [locations, setLocations] = useState<Location[]>([])

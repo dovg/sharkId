@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { createDiveSession, deleteDiveSession, getDiveSessions, getLocations } from '../api'
 import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
+import { usePageTitle } from '../hooks'
 import type { DiveSession, Location } from '../types'
 
 export default function DiveSessions() {
+  usePageTitle('Dive Sessions')
   const { role } = useAuth()
   const canEdit = role !== 'viewer'
   const [sessions, setSessions] = useState<DiveSession[]>([])

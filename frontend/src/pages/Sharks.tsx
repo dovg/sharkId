@@ -4,9 +4,11 @@ import { deleteShark, getSharks } from '../api'
 import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTitle } from '../hooks'
 import type { NameStatus, Shark } from '../types'
 
 export default function Sharks() {
+  usePageTitle('Shark Catalog')
   const { role } = useAuth()
   const canEdit = role !== 'viewer'
   const [sharks, setSharks] = useState<Shark[]>([])

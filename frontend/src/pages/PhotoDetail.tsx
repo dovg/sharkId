@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTitle } from '../hooks'
 import type { AuditEvent, BBox, Orientation, Photo } from '../types'
 
 // ── tiny helpers ─────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ function DrawOverlay({ saved, live, onMouseDown, onMouseMove, onMouseUp }: DrawO
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function PhotoDetail() {
+  usePageTitle('Photo')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { role } = useAuth()

@@ -4,11 +4,13 @@ import { getSharks, getValidationQueue, suggestSharkName, validatePhoto } from '
 import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
+import { usePageTitle } from '../hooks'
 import type { Candidate, Photo, Shark } from '../types'
 
 type SharkMap = Record<string, Shark>
 
 export default function ValidationQueue() {
+  usePageTitle('Validation Queue')
   const [queue, setQueue] = useState<Photo[]>([])
   const [idx, setIdx] = useState(0)
   const [loading, setLoading] = useState(true)

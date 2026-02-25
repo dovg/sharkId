@@ -3,9 +3,11 @@ import { createUser, deleteUser, getUsers, updateUser } from '../api'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
 import { useAuth } from '../auth'
+import { usePageTitle } from '../hooks'
 import type { Role, UserRecord } from '../types'
 
 export default function Users() {
+  usePageTitle('Users')
   const { email: currentEmail } = useAuth()
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)

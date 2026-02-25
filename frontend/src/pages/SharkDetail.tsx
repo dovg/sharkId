@@ -7,6 +7,7 @@ import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTitle } from '../hooks'
 import type { AuditEvent, SharkDetail as SharkDetailType } from '../types'
 
 export default function SharkDetail() {
@@ -15,6 +16,7 @@ export default function SharkDetail() {
   const { role } = useAuth()
   const canEdit = role !== 'viewer'
   const [shark, setShark] = useState<SharkDetailType | null>(null)
+  usePageTitle(shark?.display_name ?? undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)

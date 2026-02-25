@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAuditLog } from '../api'
 import { Sidebar } from '../components/Sidebar'
+import { usePageTitle } from '../hooks'
 import type { AuditEvent } from '../types'
 
 const RESOURCE_PATH: Record<string, string> = {
@@ -35,6 +36,7 @@ const ACTION_LABEL: Record<string, string> = {
 const PAGE_SIZE = 100
 
 export default function AuditLog() {
+  usePageTitle('Audit Log')
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [offset, setOffset] = useState(0)

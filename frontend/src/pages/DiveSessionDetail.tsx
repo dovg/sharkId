@@ -5,6 +5,7 @@ import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTitle } from '../hooks'
 import type { AuditEvent, DiveSessionDetail as DSDetail, Location, Photo, Shark, Video } from '../types'
 
 export default function DiveSessionDetail() {
@@ -12,6 +13,7 @@ export default function DiveSessionDetail() {
   const { role } = useAuth()
   const canEdit = role !== 'viewer'
   const [session, setSession] = useState<DSDetail | null>(null)
+  usePageTitle(session ? `Dive · ${session.started_at.slice(0, 10)}` : undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)

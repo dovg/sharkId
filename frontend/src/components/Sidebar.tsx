@@ -23,7 +23,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">🦈 SharkID</div>
+      <div className="sidebar-logo">🦈 sharkId.tech</div>
       <nav className="sidebar-nav">
         <NavLink
           to="/sharks"

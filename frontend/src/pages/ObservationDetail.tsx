@@ -4,9 +4,11 @@ import { getDiveSessions, getLocations, getObservation, getPhoto, getSharks, upd
 import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
+import { usePageTitle } from '../hooks'
 import type { DiveSession, Location, Observation, Photo, Shark } from '../types'
 
 export default function ObservationDetail() {
+  usePageTitle('Observation')
   const { id } = useParams<{ id: string }>()
   const { role } = useAuth()
   const canEdit = role !== 'viewer'
