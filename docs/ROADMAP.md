@@ -140,6 +140,15 @@
 61. ⬜ Verify acceptance criteria from `docs/03_user_stories_acceptance.md` — **manual step**
 62. ⬜ Load realistic dataset, tune global confidence threshold — **manual step**
 
+## ✅ Phase 8.1 — Recheck & Unlinked Photos
+
+- ✅ `POST /photos/{id}/recheck` — re-triggers ML classification for unlinked (`validated`, no shark) or `error` photos; 409 for any other state; logged as `photo.recheck`
+- ✅ `GET /photos/unlinked` — returns all photos with `processing_status=validated` and `shark_id=NULL`
+- ✅ `A.PHOTO_RECHECK` audit action constant
+- ✅ PhotoDetail: "Re-run ML" button visible to editors for unlinked/error photos
+- ✅ ValidationQueue: two-tab layout — **Pending** (existing review flow) + **Unlinked** (photo grid with Re-run ML per card)
+- ✅ 3 new backend tests: recheck unlinked, recheck error, 409 for linked photo
+
 ### Running automated tests
 
 ```bash
