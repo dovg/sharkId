@@ -1,6 +1,7 @@
 import { type ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
+import AuditLog from './pages/AuditLog'
 import DiveSessionDetail from './pages/DiveSessionDetail'
 import DiveSessions from './pages/DiveSessions'
 import Locations from './pages/Locations'
@@ -43,6 +44,7 @@ export default function App() {
             element={<Guard><ObservationDetail /></Guard>}
           />
           <Route path="/locations" element={<Guard><Locations /></Guard>} />
+          <Route path="/audit-log" element={<Guard><AuditLog /></Guard>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

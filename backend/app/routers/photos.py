@@ -6,13 +6,14 @@ from typing import List
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
 from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.config import settings
 from app.database import SessionLocal, get_db
+from app.models.audit_log import A
 from app.models.dive_session import DiveSession
 from app.models.observation import Observation
 from app.models.photo import Photo, ProcessingStatus
@@ -20,6 +21,7 @@ from app.models.shark import NameStatus, Shark
 from app.models.user import User
 from app.schemas.photo import AnnotateRequest, PhotoOut, ValidateRequest
 from app.storage.minio import delete_file, get_object_bytes, upload_file
+from app.utils.audit import log_event
 from app.utils.exif import extract_exif, parse_gps, parse_taken_at
 from app.utils.photo import enrich_photo
 
@@ -123,9 +125,10 @@ def _classify_photo(photo_id: UUID) -> None:
 async def upload_photo(
     session_id: UUID,
     file: UploadFile,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     # Validate session exists
     if not db.get(DiveSession, session_id):
@@ -181,6 +184,13 @@ async def upload_photo(
         processing_status=ProcessingStatus.uploaded,
     )
     db.add(photo)
+    db.flush()
+    log_event(
+        db, current_user, A.PHOTO_UPLOAD,
+        resource_type="photo", resource_id=photo.id,
+        detail={"filename": file.filename, "size": photo.size},
+        request=request,
+    )
     db.commit()
     db.refresh(photo)
 
@@ -275,9 +285,10 @@ def _store_embedding_for_shark(photo_id: UUID, shark_id: str, display_name: str)
 async def annotate_photo(
     photo_id: UUID,
     body: AnnotateRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Save user-drawn annotation (shark bbox + zone bbox + orientation) and
     re-trigger ML classification using the annotated region."""
@@ -289,6 +300,7 @@ async def annotate_photo(
     photo.auto_detected = False   # user has now reviewed / confirmed the annotation
     photo.processing_status = ProcessingStatus.processing
     photo.top5_candidates = None
+    log_event(db, current_user, A.PHOTO_ANNOTATE, resource_type="photo", resource_id=photo_id, request=request)
     db.commit()
     db.refresh(photo)
 
@@ -301,10 +313,12 @@ async def annotate_photo(
 @router.delete("/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_photo(
     photo_id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     photo = _get_photo_or_404(db, photo_id)
+    log_event(db, current_user, A.PHOTO_DELETE, resource_type="photo", resource_id=photo_id, request=request)
     try:
         delete_file(photo.object_key)
     except Exception:
@@ -319,9 +333,10 @@ def delete_photo(
 def validate_photo(
     photo_id: UUID,
     body: ValidateRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     photo = _get_photo_or_404(db, photo_id)
     if photo.processing_status != ProcessingStatus.ready_for_validation:
@@ -380,6 +395,12 @@ def validate_photo(
         )
         db.add(obs)
 
+    log_event(
+        db, current_user, A.PHOTO_VALIDATE,
+        resource_type="photo", resource_id=photo_id,
+        detail={"action": body.action, "shark_id": str(body.shark_id) if body.shark_id else None},
+        request=request,
+    )
     db.commit()
     db.refresh(photo)
     return enrich_photo(photo)

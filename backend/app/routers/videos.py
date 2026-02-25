@@ -12,12 +12,14 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.config import settings
 from app.database import SessionLocal, get_db
+from app.models.audit_log import A
 from app.models.dive_session import DiveSession
 from app.models.photo import Photo, ProcessingStatus
 from app.models.user import User
 from app.models.video import Video, VideoStatus
 from app.schemas.video import VideoOut
 from app.storage.minio import delete_file, get_object_bytes, upload_file
+from app.utils.audit import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +130,7 @@ async def upload_video(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     if not db.get(DiveSession, session_id):
         raise HTTPException(status_code=404, detail="Dive session not found")
@@ -173,6 +175,13 @@ async def upload_video(
         dive_session_id=session_id,
     )
     db.add(video)
+    db.flush()
+    log_event(
+        db, current_user, A.VIDEO_UPLOAD,
+        resource_type="video", resource_id=video.id,
+        detail={"filename": file.filename, "size": video.size},
+        request=request,
+    )
     db.commit()
     db.refresh(video)
 
@@ -188,12 +197,14 @@ async def upload_video(
 def delete_video(
     session_id: UUID,
     video_id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     video = db.get(Video, video_id)
     if not video or video.dive_session_id != session_id:
         raise HTTPException(status_code=404, detail="Video not found")
+    log_event(db, current_user, A.VIDEO_DELETE, resource_type="video", resource_id=video_id, request=request)
     try:
         delete_file(video.object_key)
     except Exception:

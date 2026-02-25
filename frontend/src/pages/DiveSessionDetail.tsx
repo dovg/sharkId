@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteVideo, getDiveSession, getLocations, getSessionVideos, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
+import { deleteVideo, getAuditLog, getDiveSession, getLocations, getSessionVideos, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
+import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { DiveSessionDetail as DSDetail, Location, Photo, Video } from '../types'
+import type { AuditEvent, DiveSessionDetail as DSDetail, Location, Photo, Video } from '../types'
 
 export default function DiveSessionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +18,8 @@ export default function DiveSessionDetail() {
   const [editForm, setEditForm] = useState({ started_at: '', ended_at: '', location_id: '', comment: '' })
   const [saving, setSaving] = useState(false)
   const [locations, setLocations] = useState<Location[]>([])
+  const [events, setEvents] = useState<AuditEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
@@ -37,6 +40,10 @@ export default function DiveSessionDetail() {
       .finally(() => setLoading(false))
     getSessionVideos(id).then(setVideos).catch(() => {})
     getLocations().then(setLocations).catch(() => {})
+    getAuditLog({ resource_type: 'session', resource_id: id })
+      .then(setEvents)
+      .catch(() => {})
+      .finally(() => setEventsLoading(false))
   }, [id])
 
   // Poll video status while any video is still processing
@@ -393,7 +400,7 @@ export default function DiveSessionDetail() {
 
           {/* Observations */}
           {session.observations.length > 0 && (
-            <div className="card">
+            <div className="card mb16">
               <div className="card-title">Observations</div>
               <table className="table">
                 <thead>
@@ -427,6 +434,9 @@ export default function DiveSessionDetail() {
               </table>
             </div>
           )}
+
+          {/* Event History */}
+          <EventHistory events={events} loading={eventsLoading} />
         </div>
       </div>
     </div>

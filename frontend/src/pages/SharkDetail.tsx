@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteShark, getShark, updateShark } from '../api'
+import { deleteShark, getAuditLog, getShark, updateShark } from '../api'
+import { EventHistory } from '../components/EventHistory'
 import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { SharkDetail as SharkDetailType } from '../types'
+import type { AuditEvent, SharkDetail as SharkDetailType } from '../types'
 
 export default function SharkDetail() {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +20,8 @@ export default function SharkDetail() {
     display_name: '',
     name_status: 'temporary',
   })
+  const [events, setEvents] = useState<AuditEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
 
   useEffect(() => {
     if (!id) return
@@ -29,6 +32,10 @@ export default function SharkDetail() {
       })
       .catch(() => setError('Failed to load shark'))
       .finally(() => setLoading(false))
+    getAuditLog({ resource_type: 'shark', resource_id: id })
+      .then(setEvents)
+      .catch(() => {})
+      .finally(() => setEventsLoading(false))
   }, [id])
 
   const handleSetMain = async (photoId: string) => {
@@ -208,6 +215,11 @@ export default function SharkDetail() {
           {shark.observations.length === 0 && (
             <div className="empty-state">No observations recorded yet.</div>
           )}
+
+          {/* Event History */}
+          <div className="mt16">
+            <EventHistory events={events} loading={eventsLoading} />
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import type {
+  AuditEvent,
   BBox,
   DiveSession,
   DiveSessionDetail,
@@ -159,3 +160,18 @@ export const updateObservation = (
     confirm: boolean
   }>,
 ) => req<Observation>(`/observations/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+
+// ── Audit Log ──────────────────────────────────────────────────────────────────
+export const getAuditLog = (params?: {
+  resource_type?: string
+  resource_id?: string
+  limit?: number
+  offset?: number
+}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
+    )
+  ).toString()
+  return req<AuditEvent[]>(`/audit-log${qs ? `?${qs}` : ''}`)
+}

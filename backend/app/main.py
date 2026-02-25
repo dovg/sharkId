@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import auth, dive_sessions, internal, locations, observations, photos, sharks, videos
+from app.routers import audit_log, auth, dive_sessions, internal, locations, observations, photos, sharks, videos
 
 app = FastAPI(title="SharkID API", version="0.1.0")
 
@@ -14,6 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(audit_log.router)
 app.include_router(internal.router)
 app.include_router(locations.router)
 app.include_router(dive_sessions.router)

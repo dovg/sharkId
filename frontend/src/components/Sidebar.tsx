@@ -49,6 +49,12 @@ export function Sidebar() {
         >
           Locations
         </NavLink>
+        <NavLink
+          to="/audit-log"
+          className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+        >
+          Audit Log
+        </NavLink>
       </nav>
       <div className="sidebar-footer">
         <button

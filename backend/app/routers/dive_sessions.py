@@ -2,12 +2,13 @@ from collections import defaultdict
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
+from app.models.audit_log import A
 from app.models.dive_session import DiveSession
 from app.models.observation import Observation
 from app.models.photo import Photo, ProcessingStatus
@@ -15,6 +16,7 @@ from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.dive_session import DiveSessionCreate, DiveSessionDetail, DiveSessionOut, DiveSessionUpdate
 from app.schemas.observation import ObservationOut
+from app.utils.audit import log_event
 from app.utils.photo import enrich_photo, photo_url
 
 router = APIRouter(prefix="/dive-sessions", tags=["dive-sessions"])
@@ -113,11 +115,14 @@ def list_sessions(
 @router.post("", response_model=DiveSessionOut, status_code=status.HTTP_201_CREATED)
 def create_session(
     body: DiveSessionCreate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     session = DiveSession(**body.model_dump())
     db.add(session)
+    db.flush()
+    log_event(db, current_user, A.SESSION_CREATE, resource_type="session", resource_id=session.id, request=request)
     db.commit()
     db.refresh(session)
     return session
@@ -149,12 +154,14 @@ def get_session(
 def update_session(
     session_id: UUID,
     body: DiveSessionUpdate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     s = _get_or_404(db, session_id)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(s, field, value)
+    log_event(db, current_user, A.SESSION_UPDATE, resource_type="session", resource_id=session_id, request=request)
     db.commit()
     db.refresh(s)
     return s
@@ -163,9 +170,11 @@ def update_session(
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(
     session_id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     s = _get_or_404(db, session_id)
+    log_event(db, current_user, A.SESSION_DELETE, resource_type="session", resource_id=session_id, request=request)
     db.delete(s)
     db.commit()

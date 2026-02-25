@@ -1,17 +1,19 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
+from app.models.audit_log import A
 from app.models.observation import Observation
 from app.models.photo import Photo
 from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.observation import ObservationOut
 from app.schemas.shark import SharkCreate, SharkDetail, SharkOut, SharkUpdate
+from app.utils.audit import log_event
 from app.utils.names import suggest_name
 from app.utils.photo import enrich_photo, photo_url
 
@@ -62,11 +64,19 @@ def list_sharks(
 @router.post("", response_model=SharkOut, status_code=status.HTTP_201_CREATED)
 def create_shark(
     body: SharkCreate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     shark = Shark(**body.model_dump())
     db.add(shark)
+    db.flush()
+    log_event(
+        db, current_user, A.SHARK_CREATE,
+        resource_type="shark", resource_id=shark.id,
+        detail={"display_name": shark.display_name},
+        request=request,
+    )
     db.commit()
     db.refresh(shark)
     return shark
@@ -115,10 +125,12 @@ def get_shark(
 @router.delete("/{shark_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_shark(
     shark_id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     shark = _get_or_404(db, shark_id)
+    log_event(db, current_user, A.SHARK_DELETE, resource_type="shark", resource_id=shark_id, request=request)
     db.delete(shark)
     db.commit()
 
@@ -127,12 +139,19 @@ def delete_shark(
 def update_shark(
     shark_id: UUID,
     body: SharkUpdate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     shark = _get_or_404(db, shark_id)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(shark, field, value)
+    log_event(
+        db, current_user, A.SHARK_UPDATE,
+        resource_type="shark", resource_id=shark_id,
+        detail={"display_name": body.display_name} if body.display_name else None,
+        request=request,
+    )
     db.commit()
     db.refresh(shark)
     out = SharkOut.model_validate(shark)

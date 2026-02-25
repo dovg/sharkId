@@ -8,6 +8,7 @@ from app.models.dive_session import DiveSession
 from app.models.photo import Photo, ProcessingStatus
 from app.models.observation import Observation
 from app.models.video import Video, VideoStatus
+from app.models.audit_log import AuditLog, A
 
 __all__ = [
     "User",
@@ -20,4 +21,6 @@ __all__ = [
     "Observation",
     "Video",
     "VideoStatus",
+    "AuditLog",
+    "A",
 ]

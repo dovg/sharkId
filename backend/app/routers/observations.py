@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
+from app.models.audit_log import A
 from app.models.dive_session import DiveSession
 from app.models.location import Location
 from app.models.observation import Observation
@@ -13,6 +14,7 @@ from app.models.photo import Photo
 from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.observation import ObservationOut, ObservationUpdate
+from app.utils.audit import log_event
 
 router = APIRouter(prefix="/observations", tags=["observations"])
 
@@ -48,8 +50,9 @@ def get_observation(
 def update_observation(
     observation_id: UUID,
     body: ObservationUpdate,
+    request: Request,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     obs = _get_or_404(db, observation_id)
     if obs.confirmed_at is not None:
@@ -68,7 +71,11 @@ def update_observation(
 
     if body.confirm:
         obs.confirmed_at = datetime.now(timezone.utc)
+        action = A.OBSERVATION_CONFIRM
+    else:
+        action = A.OBSERVATION_UPDATE
 
+    log_event(db, current_user, action, resource_type="observation", resource_id=observation_id, request=request)
     db.commit()
     db.refresh(obs)
     return _to_out(obs, db)

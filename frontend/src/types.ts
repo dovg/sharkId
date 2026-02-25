@@ -113,3 +113,15 @@ export interface SharkDetail extends Shark {
   first_seen: string | null
   last_seen: string | null
 }
+
+export interface AuditEvent {
+  id: string
+  user_id: string | null
+  user_email: string
+  action: string
+  resource_type: string | null
+  resource_id: string | null
+  detail: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}

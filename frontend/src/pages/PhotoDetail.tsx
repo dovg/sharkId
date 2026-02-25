@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { annotatePhoto, deletePhoto, getPhoto } from '../api'
+import { annotatePhoto, deletePhoto, getAuditLog, getPhoto } from '../api'
+import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { BBox, Orientation, Photo } from '../types'
+import type { AuditEvent, BBox, Orientation, Photo } from '../types'
 
 // ── tiny helpers ─────────────────────────────────────────────────────────────
 
@@ -63,6 +64,8 @@ export default function PhotoDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [events, setEvents] = useState<AuditEvent[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
 
   // annotation state
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -86,6 +89,10 @@ export default function PhotoDetail() {
       })
       .catch(() => setError('Failed to load photo'))
       .finally(() => setLoading(false))
+    getAuditLog({ resource_type: 'photo', resource_id: id })
+      .then(setEvents)
+      .catch(() => {})
+      .finally(() => setEventsLoading(false))
   }, [id])
 
   // draw shark crop onto canvas when entering step 2
@@ -461,6 +468,9 @@ export default function PhotoDetail() {
                   </div>
                 </div>
               </div>
+
+              {/* Event History */}
+              <EventHistory events={events} loading={eventsLoading} />
 
             </div>
           </div>
