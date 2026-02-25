@@ -13,7 +13,7 @@ export default function SharkDetail() {
   const [shark, setShark] = useState<SharkDetailType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [showRename, setShowRename] = useState(false)
   const [renameForm, setRenameForm] = useState({
     display_name: '',
@@ -147,7 +147,7 @@ export default function SharkDetail() {
                     key={p.id}
                     className={`strip-photo${p.id === shark.main_photo_id?.toString() ? ' primary' : ''}`}
                     data-clickable=""
-                    onClick={() => p.url && setLightboxUrl(p.url)}
+                    onClick={() => p.url && setLightboxIndex(shark.all_photos.indexOf(p))}
                   >
                     {p.url ? <img src={p.url} alt="" /> : '📷'}
                     <button
@@ -201,8 +201,13 @@ export default function SharkDetail() {
         </div>
       </div>
 
-      {lightboxUrl && (
-        <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      {lightboxIndex !== null && shark.all_photos[lightboxIndex]?.url && (
+        <Lightbox
+          url={shark.all_photos[lightboxIndex].url!}
+          onClose={() => setLightboxIndex(null)}
+          onPrev={lightboxIndex > 0 ? () => setLightboxIndex(i => i! - 1) : undefined}
+          onNext={lightboxIndex < shark.all_photos.length - 1 ? () => setLightboxIndex(i => i! + 1) : undefined}
+        />
       )}
 
       {showRename && (
