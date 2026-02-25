@@ -70,6 +70,9 @@ export interface DiveSession {
   location_id: string | null
   comment: string | null
   created_at: string
+  shark_count: number
+  queue_count: number
+  shark_thumbs: string[]
 }
 
 export interface DiveSessionDetail extends DiveSession {

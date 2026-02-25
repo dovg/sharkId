@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getSharks, getValidationQueue, suggestSharkName, validatePhoto } from '../api'
 import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
@@ -171,20 +172,41 @@ export default function ValidationQueue() {
               {/* Left: photo + metadata */}
               <div className="validation-photo-panel">
                 <div className="card mb16">
-                  <div
-                    className="photo-preview-box"
-                    {...(photo.url ? { 'data-clickable': '', onClick: () => setLightboxUrl(photo.url!) } : {})}
-                  >
-                    {photo.url ? (
-                      <img
-                        src={photo.url}
-                        alt="Validation photo"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      '📷'
-                    )}
-                  </div>
+                  {photo.url ? (
+                    <div
+                      className="annot-photo-wrap"
+                      data-clickable=""
+                      onClick={() => setLightboxUrl(photo.url!)}
+                      style={{ cursor: 'zoom-in' }}
+                    >
+                      <img src={photo.url} alt="Validation photo" draggable={false} />
+                      {photo.shark_bbox && photo.zone_bbox && (
+                        <svg
+                          className="annot-svg"
+                          viewBox="0 0 1 1"
+                          preserveAspectRatio="none"
+                          style={{ cursor: 'zoom-in', pointerEvents: 'none' }}
+                        >
+                          {/* shark body — teal */}
+                          <rect
+                            x={photo.shark_bbox.x} y={photo.shark_bbox.y}
+                            width={photo.shark_bbox.w} height={photo.shark_bbox.h}
+                            fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003"
+                          />
+                          {/* identification zone — orange, zone coords are relative to shark crop */}
+                          <rect
+                            x={photo.shark_bbox.x + photo.zone_bbox.x * photo.shark_bbox.w}
+                            y={photo.shark_bbox.y + photo.zone_bbox.y * photo.shark_bbox.h}
+                            width={photo.zone_bbox.w * photo.shark_bbox.w}
+                            height={photo.zone_bbox.h * photo.shark_bbox.h}
+                            fill="rgba(255,140,0,0.15)" stroke="#ff8c00" strokeWidth="0.003"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="photo-preview-box">📷</div>
+                  )}
                 </div>
                 <div className="card">
                   <div className="card-title">Image Metadata</div>
@@ -289,6 +311,9 @@ export default function ValidationQueue() {
                     >
                       Leave Unlinked
                     </button>
+                    <Link to={`/photos/${photo.id}`} className="btn btn-outline">
+                      Edit Photo Annotation
+                    </Link>
                   </div>
                 </div>
               </div>

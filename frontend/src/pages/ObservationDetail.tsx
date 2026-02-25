@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getLocations, getObservation, updateObservation } from '../api'
+import { getLocations, getObservation, getPhoto, updateObservation } from '../api'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { Location, Observation } from '../types'
+import type { Location, Observation, Photo } from '../types'
 
 export default function ObservationDetail() {
   const { id } = useParams<{ id: string }>()
   const [obs, setObs] = useState<Observation | null>(null)
+  const [photo, setPhoto] = useState<Photo | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -29,6 +30,7 @@ export default function ObservationDetail() {
           taken_at: o.taken_at ? o.taken_at.slice(0, 16) : '',
           comment: o.comment ?? '',
         })
+        if (o.photo_id) getPhoto(o.photo_id).then(setPhoto).catch(() => {})
       })
       .catch(() => setError('Failed to load observation'))
       .finally(() => setLoading(false))
@@ -116,7 +118,41 @@ export default function ObservationDetail() {
             {/* Left: photo + links */}
             <div className="card">
               <div className="card-body">
-                <div className="photo-preview-box mb16">📷</div>
+                {photo?.url ? (
+                  <div className="annot-photo-wrap mb16">
+                    <img src={photo.url} alt="" draggable={false} />
+                    {photo.shark_bbox && photo.zone_bbox && (
+                      <svg
+                        className="annot-svg"
+                        viewBox="0 0 1 1"
+                        preserveAspectRatio="none"
+                        style={{ cursor: 'default', pointerEvents: 'none' }}
+                      >
+                        <rect
+                          x={photo.shark_bbox.x} y={photo.shark_bbox.y}
+                          width={photo.shark_bbox.w} height={photo.shark_bbox.h}
+                          fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003"
+                        />
+                        <rect
+                          x={photo.shark_bbox.x + photo.zone_bbox.x * photo.shark_bbox.w}
+                          y={photo.shark_bbox.y + photo.zone_bbox.y * photo.shark_bbox.h}
+                          width={photo.zone_bbox.w * photo.shark_bbox.w}
+                          height={photo.zone_bbox.h * photo.shark_bbox.h}
+                          fill="rgba(255,140,0,0.15)" stroke="#ff8c00" strokeWidth="0.003"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                ) : (
+                  <div className="photo-preview-box mb16">📷</div>
+                )}
+                {photo && (
+                  <div className="mb16">
+                    <Link to={`/photos/${photo.id}`} className="btn btn-outline btn-sm">
+                      Edit Photo Annotation
+                    </Link>
+                  </div>
+                )}
                 <div className="exif-table">
                   <div className="exif-row">
                     <span className="exif-key">Shark</span>

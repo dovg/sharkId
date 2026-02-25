@@ -172,6 +172,21 @@ export default function DiveSessions() {
                         {d.toLocaleString('en')}
                         {s.comment && ` — ${s.comment}`}
                       </div>
+                      <div className="session-stats">
+                        {s.shark_count > 0 && (
+                          <span className="session-stat">🦈 {s.shark_count} shark{s.shark_count !== 1 ? 's' : ''}</span>
+                        )}
+                        {s.queue_count > 0 && (
+                          <span className="session-stat session-stat-queue">⏳ {s.queue_count} in queue</span>
+                        )}
+                      </div>
+                      {s.shark_thumbs.length > 0 && (
+                        <div className="session-thumbs">
+                          {s.shark_thumbs.map((url, i) => (
+                            <img key={i} src={url} alt="" className="session-thumb" />
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <button
                       className="btn btn-danger btn-sm"

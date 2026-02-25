@@ -29,6 +29,11 @@ class DiveSessionOut(BaseModel):
     comment: Optional[str]
     created_at: datetime
 
+    # Aggregates populated by the list endpoint
+    shark_count: int = 0
+    queue_count: int = 0
+    shark_thumbs: List[str] = []
+
 
 class DiveSessionDetail(DiveSessionOut):
     photo_count: int = 0

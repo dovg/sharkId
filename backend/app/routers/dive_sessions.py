@@ -1,7 +1,9 @@
+from collections import defaultdict
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -9,7 +11,8 @@ from app.config import settings
 from app.database import get_db
 from app.models.dive_session import DiveSession
 from app.models.observation import Observation
-from app.models.photo import Photo
+from app.models.photo import Photo, ProcessingStatus
+from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.dive_session import DiveSessionCreate, DiveSessionDetail, DiveSessionOut, DiveSessionUpdate
 from app.schemas.observation import ObservationOut
@@ -38,12 +41,94 @@ def _enrich_photo(photo: Photo) -> PhotoOut:
     return out
 
 
+def _photo_url(object_key: str) -> str | None:
+    if settings.photo_base_url:
+        return f"{settings.photo_base_url}/{object_key}"
+    try:
+        return get_presigned_url(object_key)
+    except Exception:
+        return None
+
+
 @router.get("", response_model=List[DiveSessionOut])
 def list_sessions(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return db.query(DiveSession).order_by(DiveSession.started_at.desc()).all()
+    sessions = db.query(DiveSession).order_by(DiveSession.started_at.desc()).all()
+    if not sessions:
+        return []
+
+    session_ids = [s.id for s in sessions]
+
+    # Unique shark count per session
+    shark_counts = dict(
+        db.query(Observation.dive_session_id, func.count(distinct(Observation.shark_id)))
+        .filter(
+            Observation.dive_session_id.in_(session_ids),
+            Observation.shark_id.isnot(None),
+        )
+        .group_by(Observation.dive_session_id)
+        .all()
+    )
+
+    # Validation-queue photo count per session
+    queue_counts = dict(
+        db.query(Photo.dive_session_id, func.count(Photo.id))
+        .filter(
+            Photo.dive_session_id.in_(session_ids),
+            Photo.processing_status == ProcessingStatus.ready_for_validation,
+        )
+        .group_by(Photo.dive_session_id)
+        .all()
+    )
+
+    # Shark thumbnails: up to 5 unique sharks per session via their main photo
+    obs_sharks = (
+        db.query(Observation.dive_session_id, Observation.shark_id)
+        .filter(
+            Observation.dive_session_id.in_(session_ids),
+            Observation.shark_id.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    session_shark_ids: dict = defaultdict(list)
+    for sess_id, shark_id in obs_sharks:
+        if len(session_shark_ids[sess_id]) < 5:
+            session_shark_ids[sess_id].append(shark_id)
+
+    all_shark_ids = list({sid for ids in session_shark_ids.values() for sid in ids})
+    sharks_map = {}
+    if all_shark_ids:
+        sharks_map = {s.id: s for s in db.query(Shark).filter(Shark.id.in_(all_shark_ids)).all()}
+
+    main_photo_ids = [s.main_photo_id for s in sharks_map.values() if s.main_photo_id]
+    photos_map = {}
+    if main_photo_ids:
+        photos_map = {p.id: p for p in db.query(Photo).filter(Photo.id.in_(main_photo_ids)).all()}
+
+    session_thumbs: dict = {}
+    for sess_id, shark_ids in session_shark_ids.items():
+        urls = []
+        for shark_id in shark_ids:
+            shark = sharks_map.get(shark_id)
+            if shark and shark.main_photo_id:
+                photo = photos_map.get(shark.main_photo_id)
+                if photo:
+                    url = _photo_url(photo.object_key)
+                    if url:
+                        urls.append(url)
+        session_thumbs[sess_id] = urls
+
+    results = []
+    for s in sessions:
+        out = DiveSessionOut.model_validate(s)
+        out.shark_count = shark_counts.get(s.id, 0)
+        out.queue_count = queue_counts.get(s.id, 0)
+        out.shark_thumbs = session_thumbs.get(s.id, [])
+        results.append(out)
+    return results
 
 
 @router.post("", response_model=DiveSessionOut, status_code=status.HTTP_201_CREATED)
