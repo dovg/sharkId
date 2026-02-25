@@ -6,106 +6,138 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tiger shark identification and observation tracking system for marine biologists. Researchers photograph sharks underwater and the system auto-identifies individuals by their unique spot patterns near the mouth.
 
-**Status: Pre-implementation.** A pure-HTML/CSS/JS UI prototype exists in `prototype/`. No backend or frontend framework code yet.
-
-## Planned Tech Stack
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Backend | Python, FastAPI, JWT auth |
-| Frontend | React SPA |
-| Database | PostgreSQL |
-| File storage | MinIO (S3-compatible) |
-| ML service | Python (separate service) |
+| Backend | Python 3.13, FastAPI 0.133, SQLAlchemy 2.0, Alembic |
+| Frontend | React 19, Vite 7, TypeScript 5.9, React Router 7 |
+| Database | PostgreSQL 16 |
+| File storage | MinIO (pinned release tag) |
+| ML service | Python 3.13, FastAPI, NumPy, OpenCV, scikit-learn |
+| Reverse proxy | nginx stable-alpine (1.28) |
+| Auth | JWT via python-jose |
 
-**System flow:** React SPA → FastAPI backend → PostgreSQL + MinIO + ML Service
+**System flow:** React SPA → nginx:80 → FastAPI backend:8000 → PostgreSQL + MinIO + ML service:8001
+
+## Running the app
+
+```bash
+cp .env.example .env
+docker-compose up -d
+# App: http://localhost
+# API docs: http://localhost:8000/docs
+```
+
+Key commands:
+```bash
+docker-compose build backend ml        # rebuild after requirements changes
+docker-compose logs -f backend         # tail logs
+docker-compose exec backend alembic upgrade head          # run migrations
+docker-compose exec backend alembic revision --autogenerate -m "desc"  # new migration
+```
 
 ## Domain Model
 
-### Core Entities
-
 **Shark** — catalog entry for an identified individual
-- `id`, `display_name`, `name_status` (`temporary` | `confirmed`), `created_at`, `profile_photos`
-- New sharks get a suggested temporary name from Harry Potter female characters (user can accept or replace)
+- `id`, `display_name`, `name_status` (`temporary` | `confirmed`), `created_at`
+- `main_photo_id` FK → photos; `main_photo_url` injected at response time
+- New sharks get a suggested temporary name from Harry Potter female characters
 
-**Photo** — uploaded image, stored in MinIO
-- `id`, `object_key` (MinIO key), `uploaded_at`, `content_type`, `size`
-- `exif_payload` (full EXIF as JSON), normalized: `taken_at`, `gps_lat`, `gps_lon`
-- `processing_status`: `uploaded` → `processing` → `ready_for_validation` | `error`
-- `top5_candidates` with confidence scores
+**Photo** — uploaded image stored in MinIO (JPEG/PNG only, max 50 MB)
+- `processing_status`: `uploaded` → `processing` → `ready_for_validation` | `error` | `validated`
+- `shark_bbox`, `zone_bbox` — normalised `{x,y,w,h}` 0–1; zone coords relative to shark crop
+- `orientation` — `face_left` | `face_right`
+- `auto_detected` — True while ML-suggested bboxes await user confirmation
+- `top5_candidates` — JSON array of `{shark_id, display_name, score}`
 
 **DiveSession** — groups photos and observations from one dive
-- `id`, `started_at`, `ended_at`, `location_id`, `comment`, list of `photo_id`s
+- `started_at`, `ended_at`, `location_id`, `comment`
+- Response includes `shark_count`, `queue_count`, `shark_thumbs`
 
-**Observation** — journal entry for a shark encounter
-- `id`, `dive_session_id`, `shark_id`, `photo_id`, `taken_at`, `location_id`, `comment`, `confirmed_at`
-- Always created as draft; user confirmation always required
+**Observation** — journal entry for a shark encounter; always created as draft
+- `confirmed_at=NULL` → draft; non-null → confirmed (irreversible, API returns 409 on edit)
+- `exif_payload` injected from linked photo at GET time
 
-**Location** — reference catalog of dive spots
-- `country`, `spot_name`, `coordinates`; editable by all users
+**Location** — reference catalog of dive spots with lat/lon validation
 
-### ML Pipeline (UC-05)
+**Video** — uploaded dive video; ML extracts shark frames automatically
 
-1. Detect snout region in photo
-2. Generate feature embeddings
-3. KNN search against known sharks
-4. Return top-5 candidates with scores
-5. Apply global confidence threshold
-6. Set photo status to `ready_for_validation`
+## Architecture
 
-## Fixed Architectural Decisions (docs/04_assumptions_scope.md)
+### nginx routing (`infra/nginx/nginx.conf`)
+- `resolver 127.0.0.11 valid=5s` — Docker DNS, re-resolves after container recreate
+- `/photos/` → `minio:9000/sharks-photos/` (public read)
+- `/api/` → `backend:8000/` (strips prefix)
+- `/` → `frontend:5173` (WebSocket upgrade for Vite HMR)
 
-- No role-based access control in MVP (single user type, auth required)
-- Global threshold for new-shark identification (not per-shark)
-- Top-5 candidates (fixed list size)
-- Accepted image formats: JPEG and PNG only; others rejected at upload
-- No data export functionality
-- Regular PostgreSQL dump + MinIO snapshot backups are mandatory
+### Backend (`backend/app/`)
+```
+config.py           ← pydantic-settings (DATABASE_URL, JWT_*, MINIO_*, ML_SERVICE_URL, photo_base_url)
+database.py         ← engine (pool_size=10, max_overflow=20), SessionLocal, Base, get_db
+main.py             ← FastAPI app; CORS for localhost/:3000/:5173
+models/             ← User, Location, Shark, DiveSession, Photo, Observation, Video
+auth/               ← bcrypt>=5 (no passlib), jwt.py, dependencies.py
+storage/minio.py    ← singleton client; upload_file(), get_object_bytes(), get_presigned_url(), delete_file()
+utils/photo.py      ← shared photo_url(photo) + enrich_photo(photo) — used by all routers
+utils/exif.py       ← extract_exif(), parse_taken_at(), parse_gps()
+routers/
+  auth.py           ← POST /auth/login, /auth/logout
+  locations.py      ← CRUD /locations (lat/lon validated with Field bounds)
+  dive_sessions.py  ← CRUD /dive-sessions; list includes shark_count/queue_count/shark_thumbs
+  photos.py         ← upload (PIL verify + 50MB limit), validate, annotate, delete; bg classification task
+  videos.py         ← upload (Content-Length check), bg frame extraction with ThreadPoolExecutor(4)
+  sharks.py         ← CRUD /sharks; GET includes first_seen/last_seen from observations
+  observations.py   ← GET/PUT /observations; GET injects exif_payload from linked photo
+  internal.py       ← /internal/users CRUD (IP-allowlisted: localhost + RFC-1918 only)
+```
 
-## Key Business Rules
+### ML service (`ml/`)
+```
+detector.py   ← auto_detect() background subtraction; detect_snout() fallback
+embedder.py   ← 106-dim L2-norm vector (64-dim HSV hist + 10-dim LBP + 32-dim spatial)
+store.py      ← EmbeddingStore: numpy .npy + JSON (NOT pickle); thread-safe singleton
+classifier.py ← KNN cosine similarity, dedup per shark, top-5 above threshold
+video.py      ← extract_shark_frames(); VIDEO_FRAME_INTERVAL env var; max 30 frames
+main.py       ← POST /detect, /classify, /embeddings, /process-video; GET /health
+```
 
-- All ML auto-classifications must be confirmed by the user (UC-06 validation queue)
-- Photos upload without shark association; shark linking happens during validation
-- Observations are auto-created as drafts from EXIF metadata; user edits/confirms
-- During validation the user can: confirm top candidate, select different shark, create new shark, or leave unlinked
+### Frontend (`frontend/src/`)
+```
+api.ts          ← all API calls; 401 → clears token + redirects to /login
+types.ts        ← TypeScript interfaces for all domain objects
+auth.tsx        ← token context
+components/
+  Sidebar.tsx      ← uses GET /photos/validation-queue/count for badge
+  Lightbox.tsx     ← onPrev/onNext + keyboard ←/→/Esc
+  Modal.tsx, StatusBadge.tsx
+pages/
+  DiveSessions.tsx        ← list with shark thumbs, counts
+  DiveSessionDetail.tsx   ← photo grid, video upload, edit form, location name
+  ValidationQueue.tsx     ← keyboard nav, bbox overlays, candidate thumbnails
+  PhotoDetail.tsx         ← 3-step annotation tool, ML pre-fill badge
+  SharkDetail.tsx         ← first/last seen stats, all_photos strip with ★ main setter
+  ObservationDetail.tsx   ← shark/session/location selectors, collapsible EXIF panel
+  Sharks.tsx, Locations.tsx, Login.tsx
+```
 
-## UI Specification — HTML Prototype
+## Key conventions
 
-The `prototype/` directory contains the authoritative UI specification. Open `prototype/login.html` in a browser to navigate the full prototype. All page layouts, interactions, field names, and status labels defined here are canonical — the React frontend must match them.
+- **Photo URL**: always go through `utils/photo.py:enrich_photo()` — never construct URLs inline
+- **Background tasks**: use `SessionLocal()` directly (not `get_db()`); always `logger.exception()` on error
+- **Migrations**: `server_default=sa.false()` required when adding NOT NULL bool to existing table
+- **Observations**: confirmed_at non-null means locked — API enforces 409 on any update attempt
+- **Validation flow**: `ready_for_validation` → user action → `validated`; error path → `error` status
+- **Internal API**: `/internal/` routes use IP allowlist dependency, not JWT
 
-| File | Screen | Key interactions |
-|------|--------|-----------------|
-| `login.html` | Login | Form submit → `dive-sessions.html` |
-| `dive-sessions.html` | Session list | Inline "New Session" form (toggle); session cards link to detail |
-| `dive-session-detail.html` | Session detail | Photo upload dropzone (JPEG/PNG); photo grid with status badges (`uploaded`, `processing`, `ready_for_validation`, `error`, `confirmed`); observations table |
-| `validation-queue.html` | Validation queue | Side-by-side layout: large photo on left, ranked candidate list on right; action buttons: **Confirm Selected**, **Select Other Shark** (picker modal with search), **Create New Shark** (modal with suggested HP name + profile photo checkbox), **Leave Unlinked**; Prev/Next navigation |
-| `sharks.html` | Shark catalog | Grid view; live search by name; filter by `confirmed` / `temporary` name status |
-| `shark-detail.html` | Shark profile | Stats row; profile photo strip (primary = teal border); observation timeline; Rename modal (name + status dropdown) |
-| `observation-detail.html` | Observation | Draft form: shark selector, session, datetime, location, comment; collapsible raw EXIF panel; **Confirm Observation** locks all fields permanently |
-| `locations.html` | Location catalog | Table with search + country filter; inline "Add Location" form; Edit modal; Delete with confirm dialog |
+## UI Specification
 
-### Design system (`prototype/style.css`)
+`prototype/` is the canonical UI spec — open `prototype/login.html` in a browser.
+Design tokens: `--navy #1b3a5c` · `--blue #2d7dd2` · `--teal #0d9e93` · `--bg #f0f4f8`
 
-- **Palette:** `--navy #1b3a5c`, `--blue #2d7dd2`, `--teal #0d9e93`, `--bg #f0f4f8`
-- **Layout:** fixed sidebar (224 px) + scrollable main content
-- **Status chips:** `.s-uploaded`, `.s-processing`, `.s-ready`, `.s-error`, `.s-temporary`, `.s-confirmed`, `.s-draft`
-- **Photo placeholders:** coloured boxes with 🦈 emoji (replace with real `<img>` in React)
-- **Modals:** `.modal-overlay` + `.modal` — toggled via `.open` class
-
-### Prototype conventions to carry into React
-
-- Sidebar active state: highlight current section with teal left border
-- Validation queue is the only page with badge count (pending photo count)
-- `name_status` is always shown next to the shark name — `temporary` in purple, `confirmed` in green
-- Observation confirmation is **irreversible** — fields lock after confirm; this must be enforced by the API too
-- New shark name suggestions cycle through Harry Potter female character names
+## Fixed constraints (never change)
+- No RBAC in MVP; top-5 candidates only; JPEG + PNG only; no data export
+- Global confidence threshold (not per-shark); backups mandatory
 
 ## Documentation
-
-All requirements are in `docs/` (written in Russian):
-- `01_domain_overview.md` — entities and domain context
-- `02_use_cases.md` — UC-01 through UC-10
-- `03_user_stories_acceptance.md` — MVP acceptance criteria
-- `04_assumptions_scope.md` — fixed decisions
-- `05_architecture.md` — tech stack and component overview
-- `ROADMAP.md` — 9-phase implementation plan (68 numbered steps)
+Requirements in `docs/` (Russian): domain overview, use cases, acceptance criteria, fixed decisions, architecture, ROADMAP.

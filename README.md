@@ -7,6 +7,19 @@ All ML suggestions require manual confirmation before they are persisted.
 
 ---
 
+## Screenshots
+
+| | |
+|:---:|:---:|
+| ![Login](docs/screenshots/login.png) | ![Dive Sessions](docs/screenshots/dive-sessions.png) |
+| *Login* | *Dive sessions with photo thumbnails and queue counts* |
+| ![Session Detail](docs/screenshots/session-detail.png) | ![Validation Queue](docs/screenshots/validation-queue.png) |
+| *Session detail — photo grid, video upload, stats* | *Validation queue — ML annotation overlay and decision panel* |
+| ![Shark Catalog](docs/screenshots/sharks.png) | ![Shark Detail](docs/screenshots/shark-detail.png) |
+| *Shark catalog with profile photos and name status* | *Shark profile — sighting stats and observation history* |
+
+---
+
 ## Quick start
 
 ```bash
@@ -144,9 +157,9 @@ docker-compose logs -f nginx
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18, Vite, TypeScript |
-| Backend | Python 3.12, FastAPI, SQLAlchemy 2, Alembic |
-| ML service | Python 3.12, FastAPI, Pillow, NumPy, OpenCV |
+| Frontend | React 19, Vite 7, TypeScript 5.9 |
+| Backend | Python 3.13, FastAPI, SQLAlchemy 2, Alembic |
+| ML service | Python 3.13, FastAPI, Pillow, NumPy, OpenCV |
 | Database | PostgreSQL 16 |
 | Storage | MinIO (S3-compatible) |
 | Reverse proxy | nginx (port 80) |
