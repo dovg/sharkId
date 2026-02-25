@@ -101,6 +101,8 @@ export const getSessionVideos = (sessionId: string) =>
 
 export const getPhoto = (id: string) => req<Photo>(`/photos/${id}`)
 
+export const deletePhoto = (id: string) => req<void>(`/photos/${id}`, { method: 'DELETE' })
+
 export const annotatePhoto = (
   id: string,
   data: { shark_bbox: BBox; zone_bbox: BBox; orientation: Orientation },

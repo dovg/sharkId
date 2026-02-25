@@ -279,6 +279,23 @@ async def annotate_photo(
     return _enrich(photo)
 
 
+# ── delete ────────────────────────────────────────────────────────────────────
+
+@router.delete("/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_photo(
+    photo_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    photo = _get_photo_or_404(db, photo_id)
+    try:
+        delete_file(photo.object_key)
+    except Exception:
+        pass  # file may already be gone; proceed with DB deletion
+    db.delete(photo)
+    db.commit()
+
+
 # ── validate ──────────────────────────────────────────────────────────────────
 
 @router.post("/photos/{photo_id}/validate", response_model=PhotoOut)

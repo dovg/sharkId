@@ -92,6 +92,7 @@ services:
       dockerfile: Dockerfile
     environment:
       ML_CONFIDENCE_THRESHOLD: ${ML_CONFIDENCE_THRESHOLD:-0.5}
+      VIDEO_FRAME_INTERVAL:    ${VIDEO_FRAME_INTERVAL:-2.0}
     volumes:
       - ./ml:/app           # live reload in dev; /app/data holds embeddings.pkl
     ports:

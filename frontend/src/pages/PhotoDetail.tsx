@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { annotatePhoto, getPhoto } from '../api'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { annotatePhoto, deletePhoto, getPhoto } from '../api'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
 import type { BBox, Orientation, Photo } from '../types'
@@ -58,9 +58,11 @@ function DrawOverlay({ saved, live, onMouseDown, onMouseMove, onMouseUp }: DrawO
 
 export default function PhotoDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   // auto-annotation confirmation state
   const [confirmOrientation, setConfirmOrientation] = useState<Orientation | null>(null)
@@ -186,6 +188,26 @@ export default function PhotoDetail() {
     }
   }
 
+  // ── delete ────────────────────────────────────────────────────────────────
+
+  const handleDelete = async () => {
+    if (!photo) return
+    if (!window.confirm('Delete this photo? This cannot be undone.')) return
+    setDeleting(true)
+    setError('')
+    try {
+      await deletePhoto(photo.id)
+      if (photo.dive_session_id) {
+        navigate(`/dive-sessions/${photo.dive_session_id}`)
+      } else {
+        navigate('/dive-sessions')
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
+      setDeleting(false)
+    }
+  }
+
   // ── loading / error guards ─────────────────────────────────────────────────
 
   if (loading)
@@ -229,7 +251,16 @@ export default function PhotoDetail() {
             </div>
             <h1 className="page-title">Photo Detail</h1>
           </div>
-          <StatusBadge status={photo.processing_status} />
+          <div className="flex-gap8" style={{ alignItems: 'center' }}>
+            <StatusBadge status={photo.processing_status} />
+            <button
+              className="btn btn-danger btn-sm"
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              {deleting ? 'Deleting…' : 'Delete Photo'}
+            </button>
+          </div>
         </div>
 
         <div className="page-body">
