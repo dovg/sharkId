@@ -39,6 +39,7 @@ export default function ValidationQueue() {
   // ── unlinked state ─────────────────────────────────────────────────────────
   const [unlinked, setUnlinked] = useState<Photo[]>([])
   const [recheckingId, setRecheckingId] = useState<string | null>(null)
+  const [recheckingAll, setRecheckingAll] = useState(false)
 
   useEffect(() => {
     Promise.all([getValidationQueue(), getSharks(), getUnlinkedPhotos()])
@@ -135,6 +136,18 @@ export default function ValidationQueue() {
     }
   }
 
+  const handleRecheckAll = async () => {
+    setRecheckingAll(true)
+    setError('')
+    const ids = unlinked.map(p => p.id)
+    const results = await Promise.allSettled(ids.map(id => recheckPhoto(id)))
+    const succeeded = ids.filter((_, i) => results[i].status === 'fulfilled')
+    setUnlinked(prev => prev.filter(p => !succeeded.includes(p.id)))
+    const failed = results.filter(r => r.status === 'rejected').length
+    if (failed > 0) setError(`${failed} photo${failed > 1 ? 's' : ''} could not be rechecked`)
+    setRecheckingAll(false)
+  }
+
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (tab !== 'queue') return
     if (showNewShark || showPicker || lightboxUrl) return
@@ -221,6 +234,16 @@ export default function ValidationQueue() {
             unlinked.length === 0 ? (
               <div className="empty-state">No unlinked photos.</div>
             ) : (
+              <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={recheckingAll}
+                  onClick={handleRecheckAll}
+                >
+                  {recheckingAll ? 'Rechecking all…' : `Re-run ML on all (${unlinked.length})`}
+                </button>
+              </div>
               <div className="photo-grid" style={{ padding: 0 }}>
                 {unlinked.map(p => (
                   <div key={p.id} className="photo-card">
@@ -253,6 +276,7 @@ export default function ValidationQueue() {
                   </div>
                 ))}
               </div>
+              </>
             )
           )}
 
