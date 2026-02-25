@@ -26,6 +26,12 @@ export function Sidebar() {
       <div className="sidebar-logo">🦈 SharkID</div>
       <nav className="sidebar-nav">
         <NavLink
+          to="/sharks"
+          className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+        >
+          Shark Catalog
+        </NavLink>
+        <NavLink
           to="/dive-sessions"
           className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
         >
@@ -40,12 +46,6 @@ export function Sidebar() {
             {queueCount > 0 && <span className="badge">{queueCount}</span>}
           </NavLink>
         )}
-        <NavLink
-          to="/sharks"
-          className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-        >
-          Shark Catalog
-        </NavLink>
         <NavLink
           to="/locations"
           className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}

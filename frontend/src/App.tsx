@@ -32,7 +32,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/dive-sessions" replace />} />
+          <Route path="/" element={<Navigate to="/sharks" replace />} />
           <Route
             path="/dive-sessions"
             element={<Guard><DiveSessions /></Guard>}

@@ -610,6 +610,32 @@ textarea { resize: vertical; min-height: 80px; }
 .video-item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .video-item-status { display: flex; align-items: center; flex-shrink: 0; }
 
+/* ── Session shark row ───────────────────────────────── */
+.session-shark-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  border-radius: 6px;
+}
+.session-shark-row:last-child { border-bottom: none; }
+.session-shark-row:hover { background: var(--bg); }
+.session-shark-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  background: var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.session-shark-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
 /* ── Photo lightbox ──────────────────────────────────── */
 .lightbox {
   position: fixed;

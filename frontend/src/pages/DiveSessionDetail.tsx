@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteVideo, getAuditLog, getDiveSession, getLocations, getSessionVideos, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
+import { deleteVideo, getAuditLog, getDiveSession, getLocations, getSessionVideos, getSharks, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
 import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { AuditEvent, DiveSessionDetail as DSDetail, Location, Photo, Video } from '../types'
+import type { AuditEvent, DiveSessionDetail as DSDetail, Location, Photo, Shark, Video } from '../types'
 
 export default function DiveSessionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +21,7 @@ export default function DiveSessionDetail() {
   const [editForm, setEditForm] = useState({ started_at: '', ended_at: '', location_id: '', comment: '' })
   const [saving, setSaving] = useState(false)
   const [locations, setLocations] = useState<Location[]>([])
+  const [sessionSharks, setSessionSharks] = useState<Shark[]>([])
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const navigate = useNavigate()
@@ -48,6 +49,18 @@ export default function DiveSessionDetail() {
       .catch(() => {})
       .finally(() => setEventsLoading(false))
   }, [id])
+
+  // Fetch sharks observed in this session
+  useEffect(() => {
+    if (!session) return
+    const ids = [...new Set(
+      session.observations.map(o => o.shark_id).filter(Boolean) as string[]
+    )]
+    if (ids.length === 0) return
+    getSharks()
+      .then(all => setSessionSharks(all.filter(s => ids.includes(s.id))))
+      .catch(() => {})
+  }, [session])
 
   // Poll video status while any video is still processing
   useEffect(() => {
@@ -227,6 +240,43 @@ export default function DiveSessionDetail() {
               )}
             </div>
           </div>
+
+          {/* Sharks observed */}
+          {sessionSharks.length > 0 && (
+            <div className="card mb16">
+              <div className="card-title">Sharks Observed ({sessionSharks.length})</div>
+              <div className="card-body" style={{ paddingTop: 0 }}>
+                {sessionSharks.map(shark => {
+                  const sightings = session.observations.filter(o => o.shark_id === shark.id).length
+                  return (
+                    <Link
+                      key={shark.id}
+                      to={`/sharks/${shark.id}`}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <div className="session-shark-row">
+                        <div className="session-shark-thumb">
+                          {shark.main_photo_url
+                            ? <img src={shark.main_photo_url} alt="" />
+                            : '🦈'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 15 }}>{shark.display_name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                            <StatusBadge status={shark.name_status} />
+                            <span className="muted" style={{ fontSize: 12 }}>
+                              {sightings} sighting{sightings !== 1 ? 's' : ''} this session
+                            </span>
+                          </div>
+                        </div>
+                        <span className="link" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>View →</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Edit form */}
           {editing && (
