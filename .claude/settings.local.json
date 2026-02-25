@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose exec:*)",
+      "Bash(docker-compose restart backend 2>&1 && sleep 4 && docker-compose logs --tail=30 backend 2>&1)",
+      "Bash(docker-compose logs:*)"
+    ]
+  }
+}
