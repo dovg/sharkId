@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { getValidationQueue, logout } from '../api'
+import { getValidationQueueCount, logout } from '../api'
 import { useAuth } from '../auth'
 
 export function Sidebar() {
@@ -9,8 +9,8 @@ export function Sidebar() {
   const [queueCount, setQueueCount] = useState(0)
 
   useEffect(() => {
-    getValidationQueue()
-      .then(q => setQueueCount(q.length))
+    getValidationQueueCount()
+      .then(r => setQueueCount(r.count))
       .catch(() => {})
   }, [])
 

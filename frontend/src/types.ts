@@ -61,6 +61,7 @@ export interface Observation {
   comment: string | null
   confirmed_at: string | null
   created_at: string
+  exif_payload: Record<string, unknown> | null
 }
 
 export interface DiveSession {
@@ -109,4 +110,6 @@ export interface SharkDetail extends Shark {
   all_photos: Photo[]
   observations: Observation[]
   sighting_count: number
+  first_seen: string | null
+  last_seen: string | null
 }

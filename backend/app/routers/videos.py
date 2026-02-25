@@ -1,10 +1,12 @@
 import base64
+import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -15,7 +17,9 @@ from app.models.photo import Photo, ProcessingStatus
 from app.models.user import User
 from app.models.video import Video, VideoStatus
 from app.schemas.video import VideoOut
-from app.storage.minio import delete_file, upload_file
+from app.storage.minio import delete_file, get_object_bytes, upload_file
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["videos"])
 
@@ -36,7 +40,6 @@ MAX_VIDEO_BYTES = 500 * 1024 * 1024
 
 def _process_video(video_id: UUID) -> None:
     """Download video from MinIO, call ML /process-video, create Photo records."""
-    # Import here to avoid circular import at module load time
     from app.routers.photos import _classify_photo
 
     db = SessionLocal()
@@ -48,13 +51,8 @@ def _process_video(video_id: UUID) -> None:
         video.processing_status = VideoStatus.processing
         db.commit()
 
-        # Download video from MinIO
-        from app.storage.minio import _client
-        s3 = _client()
-        obj = s3.get_object(Bucket=settings.minio_bucket, Key=video.object_key)
-        video_data = obj["Body"].read()
+        video_data = get_object_bytes(video.object_key)
 
-        # Call ML service — long timeout: processing a full video takes time
         with httpx.Client(timeout=300.0) as http:
             resp = http.post(
                 f"{settings.ml_service_url}/process-video",
@@ -64,8 +62,8 @@ def _process_video(video_id: UUID) -> None:
             resp.raise_for_status()
             frames = resp.json().get("frames", [])
 
-        # Create a Photo record for each detected frame
-        count = 0
+        # Create Photo records and upload frames
+        photo_ids: list[UUID] = []
         for frame in frames:
             jpeg_bytes = base64.b64decode(frame["jpeg"])
             photo_id = uuid.uuid4()
@@ -87,20 +85,24 @@ def _process_video(video_id: UUID) -> None:
             db.add(photo)
             db.commit()
             db.refresh(photo)
+            photo_ids.append(photo.id)
 
-            # Classify the frame (uses the auto-detected bboxes)
-            try:
-                _classify_photo(photo.id)
-            except Exception:
-                pass  # classification failure is non-fatal; photo stays in processing
+        # L3: Classify frames in parallel
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(_classify_photo, pid): pid for pid in photo_ids}
+            for future in as_completed(futures):
+                pid = futures[future]
+                try:
+                    future.result()
+                except Exception:
+                    logger.exception("Frame classification failed for photo %s", pid)
 
-            count += 1
-
-        video.frames_extracted = count
+        video.frames_extracted = len(photo_ids)
         video.processing_status = VideoStatus.done
         db.commit()
 
     except Exception:
+        logger.exception("Error processing video %s", video_id)
         db.rollback()
         try:
             video = db.get(Video, video_id)
@@ -108,7 +110,7 @@ def _process_video(video_id: UUID) -> None:
                 video.processing_status = VideoStatus.error
                 db.commit()
         except Exception:
-            pass
+            logger.exception("Failed to set error status for video %s", video_id)
     finally:
         db.close()
 
@@ -123,6 +125,7 @@ def _process_video(video_id: UUID) -> None:
 async def upload_video(
     session_id: UUID,
     file: UploadFile,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -136,6 +139,14 @@ async def upload_video(
             detail="Unsupported format. Use MP4, MOV, AVI, MKV, or WebM.",
         )
 
+    # M3: Check Content-Length header before reading the full body
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_VIDEO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Video exceeds the {MAX_VIDEO_BYTES // 1024 // 1024} MB limit.",
+        )
+
     data = await file.read()
     if len(data) > MAX_VIDEO_BYTES:
         raise HTTPException(
@@ -143,7 +154,6 @@ async def upload_video(
             detail=f"Video exceeds the {MAX_VIDEO_BYTES // 1024 // 1024} MB limit.",
         )
 
-    # Derive storage extension from MIME type
     ext_map = {
         "video/mp4": "mp4", "video/quicktime": "mov",
         "video/avi": "avi", "video/x-msvideo": "avi",

@@ -26,6 +26,12 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...(init.headers as Record<string, string> | undefined),
   }
   const resp = await fetch(`${API_URL}${path}`, { ...init, headers })
+  // H4/H5: redirect to login on 401
+  if (resp.status === 401) {
+    localStorage.removeItem('token')
+    window.location.href = '/login'
+    return undefined as T
+  }
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }))
     const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
@@ -112,6 +118,7 @@ export const annotatePhoto = (
 ) => req<Photo>(`/photos/${id}/annotate`, { method: 'POST', body: JSON.stringify(data) })
 
 export const getValidationQueue = () => req<Photo[]>('/photos/validation-queue')
+export const getValidationQueueCount = () => req<{ count: number }>('/photos/validation-queue/count')
 
 export const validatePhoto = (
   id: string,
@@ -146,6 +153,7 @@ export const updateObservation = (
   data: Partial<{
     shark_id: string
     location_id: string
+    dive_session_id: string
     taken_at: string
     comment: string
     confirm: boolean

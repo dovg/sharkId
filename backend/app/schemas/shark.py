@@ -34,3 +34,5 @@ class SharkDetail(SharkOut):
     all_photos: List[Any] = []       # List[PhotoOut] — all photos linked to this shark
     observations: List[Any] = []     # List[ObservationOut]
     sighting_count: int = 0
+    first_seen: Optional[datetime] = None
+    last_seen: Optional[datetime] = None

@@ -1,3 +1,5 @@
+import io
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import List
@@ -5,6 +7,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -16,10 +19,14 @@ from app.models.photo import Photo, ProcessingStatus
 from app.models.shark import NameStatus, Shark
 from app.models.user import User
 from app.schemas.photo import AnnotateRequest, PhotoOut, ValidateRequest
-from app.storage.minio import delete_file, get_presigned_url, upload_file
+from app.storage.minio import delete_file, get_object_bytes, upload_file
 from app.utils.exif import extract_exif, parse_gps, parse_taken_at
+from app.utils.photo import enrich_photo
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png"}
+MAX_PHOTO_BYTES = 50 * 1024 * 1024  # 50 MB
 
 router = APIRouter(tags=["photos"])
 
@@ -33,26 +40,12 @@ def _get_photo_or_404(db: Session, photo_id: UUID) -> Photo:
     return photo
 
 
-def _enrich(photo: Photo) -> PhotoOut:
-    out = PhotoOut.model_validate(photo)
-    if settings.photo_base_url:
-        out.url = f"{settings.photo_base_url}/{photo.object_key}"
-    else:
-        try:
-            out.url = get_presigned_url(photo.object_key)
-        except Exception:
-            pass
-    return out
-
-
 # ── background classification task ───────────────────────────────────────────
 
 def _classify_photo(photo_id: UUID) -> None:
     """
     Fetch image from MinIO, call ML service, update photo record.
     Runs in FastAPI's thread pool via BackgroundTasks.
-    Phase 5 will implement the actual ML logic; for now the ML service
-    returns an empty candidates list and the photo moves to ready_for_validation.
     """
     db = SessionLocal()
     try:
@@ -63,11 +56,7 @@ def _classify_photo(photo_id: UUID) -> None:
         photo.processing_status = ProcessingStatus.processing
         db.commit()
 
-        # Fetch image bytes from MinIO
-        from app.storage.minio import _client
-        s3 = _client()
-        obj = s3.get_object(Bucket=settings.minio_bucket, Key=photo.object_key)
-        image_data = obj["Body"].read()
+        image_data = get_object_bytes(photo.object_key)
 
         with httpx.Client(timeout=30.0) as http:
             # Step 1: auto-detect bboxes when no annotation exists yet
@@ -110,15 +99,16 @@ def _classify_photo(photo_id: UUID) -> None:
         db.commit()
 
     except Exception:
+        logger.exception("Error classifying photo %s", photo_id)
         db.rollback()
         try:
             photo = db.get(Photo, photo_id)
             if photo:
-                photo.processing_status = ProcessingStatus.ready_for_validation
+                photo.processing_status = ProcessingStatus.error
                 photo.top5_candidates = []
                 db.commit()
         except Exception:
-            pass
+            logger.exception("Failed to set error status for photo %s", photo_id)
     finally:
         db.close()
 
@@ -150,6 +140,23 @@ async def upload_photo(
 
     data = await file.read()
 
+    # H1: enforce file size limit
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Photo exceeds the {MAX_PHOTO_BYTES // 1024 // 1024} MB limit.",
+        )
+
+    # H1: verify file is actually a valid image
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.verify()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="File is not a valid image",
+        )
+
     # Extract EXIF
     exif = extract_exif(data)
     taken_at = parse_taken_at(exif)
@@ -179,10 +186,23 @@ async def upload_photo(
 
     background_tasks.add_task(_classify_photo, photo.id)
 
-    return _enrich(photo)
+    return enrich_photo(photo)
 
 
 # ── validation queue — must be registered BEFORE /{photo_id} ─────────────────
+
+@router.get("/photos/validation-queue/count")
+def validation_queue_count(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    count = (
+        db.query(Photo)
+        .filter(Photo.processing_status == ProcessingStatus.ready_for_validation)
+        .count()
+    )
+    return {"count": count}
+
 
 @router.get("/photos/validation-queue", response_model=List[PhotoOut])
 def validation_queue(
@@ -195,7 +215,7 @@ def validation_queue(
         .order_by(Photo.uploaded_at)
         .all()
     )
-    return [_enrich(p) for p in photos]
+    return [enrich_photo(p) for p in photos]
 
 
 # ── photo detail ──────────────────────────────────────────────────────────────
@@ -206,7 +226,7 @@ def get_photo(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return _enrich(_get_photo_or_404(db, photo_id))
+    return enrich_photo(_get_photo_or_404(db, photo_id))
 
 
 # ── background embedding task ────────────────────────────────────────────────
@@ -218,10 +238,7 @@ def _store_embedding_for_shark(photo_id: UUID, shark_id: str, display_name: str)
         photo = db.get(Photo, photo_id)
         if not photo:
             return
-        from app.storage.minio import _client
-        s3 = _client()
-        obj = s3.get_object(Bucket=settings.minio_bucket, Key=photo.object_key)
-        image_data = obj["Body"].read()
+        image_data = get_object_bytes(photo.object_key)
 
         ml_params: dict = {
             "shark_id": shark_id,
@@ -247,7 +264,7 @@ def _store_embedding_for_shark(photo_id: UUID, shark_id: str, display_name: str)
                 params=ml_params,
             )
     except Exception:
-        pass  # non-critical; ML store can be rebuilt from profile photos
+        logger.exception("Failed to store embedding for photo %s / shark %s", photo_id, shark_id)
     finally:
         db.close()
 
@@ -276,7 +293,7 @@ async def annotate_photo(
     db.refresh(photo)
 
     background_tasks.add_task(_classify_photo, photo.id)
-    return _enrich(photo)
+    return enrich_photo(photo)
 
 
 # ── delete ────────────────────────────────────────────────────────────────────
@@ -337,12 +354,8 @@ def validate_photo(
     elif body.action == "unlink":
         photo.shark_id = None
 
-    else:
-        raise HTTPException(status_code=422, detail=f"Unknown action '{body.action}'")
-
     if body.set_as_profile_photo and photo.shark_id:
         photo.is_profile_photo = True
-        # Kick off embedding storage after commit so the shark record exists
         background_tasks.add_task(
             _store_embedding_for_shark,
             photo.id,
@@ -369,4 +382,4 @@ def validate_photo(
 
     db.commit()
     db.refresh(photo)
-    return _enrich(photo)
+    return enrich_photo(photo)

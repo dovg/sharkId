@@ -7,7 +7,6 @@ from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
-from app.config import settings
 from app.database import get_db
 from app.models.dive_session import DiveSession
 from app.models.observation import Observation
@@ -16,8 +15,7 @@ from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.dive_session import DiveSessionCreate, DiveSessionDetail, DiveSessionOut, DiveSessionUpdate
 from app.schemas.observation import ObservationOut
-from app.schemas.photo import PhotoOut
-from app.storage.minio import get_presigned_url
+from app.utils.photo import enrich_photo, photo_url
 
 router = APIRouter(prefix="/dive-sessions", tags=["dive-sessions"])
 
@@ -29,25 +27,6 @@ def _get_or_404(db: Session, session_id: UUID) -> DiveSession:
     return s
 
 
-def _enrich_photo(photo: Photo) -> PhotoOut:
-    out = PhotoOut.model_validate(photo)
-    if settings.photo_base_url:
-        out.url = f"{settings.photo_base_url}/{photo.object_key}"
-    else:
-        try:
-            out.url = get_presigned_url(photo.object_key)
-        except Exception:
-            pass
-    return out
-
-
-def _photo_url(object_key: str) -> str | None:
-    if settings.photo_base_url:
-        return f"{settings.photo_base_url}/{object_key}"
-    try:
-        return get_presigned_url(object_key)
-    except Exception:
-        return None
 
 
 @router.get("", response_model=List[DiveSessionOut])
@@ -116,7 +95,7 @@ def list_sessions(
             if shark and shark.main_photo_id:
                 photo = photos_map.get(shark.main_photo_id)
                 if photo:
-                    url = _photo_url(photo.object_key)
+                    url = photo_url(photo)
                     if url:
                         urls.append(url)
         session_thumbs[sess_id] = urls
@@ -159,7 +138,7 @@ def get_session(
         .all()
     )
     detail = DiveSessionDetail.model_validate(s)
-    detail.photos = [_enrich_photo(p) for p in photos]
+    detail.photos = [enrich_photo(p) for p in photos]
     detail.observations = [ObservationOut.model_validate(o) for o in observations]
     detail.photo_count = len(photos)
     detail.observation_count = len(observations)

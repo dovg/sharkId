@@ -40,7 +40,7 @@ def extract_exif(data: bytes) -> Dict[str, Any]:
         if gps_ifd:
             result["GPSInfo"] = _serialize(dict(gps_ifd))
         return result
-    except Exception:
+    except (OSError, SyntaxError, ValueError):
         return {}
 
 
@@ -92,5 +92,5 @@ def parse_gps(exif: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
         if str(lon_ref).upper() == "W":
             lon = -lon
         return round(lat, 6), round(lon, 6)
-    except Exception:
+    except (TypeError, ValueError, ZeroDivisionError, IndexError):
         return None, None

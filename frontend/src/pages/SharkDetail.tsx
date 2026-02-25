@@ -132,9 +132,19 @@ export default function SharkDetail() {
                   </div>
                   <div className="stat">
                     <span className="stat-val">
-                      {new Date(shark.created_at).toLocaleDateString('en')}
+                      {shark.first_seen
+                        ? new Date(shark.first_seen).toLocaleDateString('en')
+                        : '—'}
                     </span>
-                    <span className="stat-lbl">Added</span>
+                    <span className="stat-lbl">First Seen</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-val">
+                      {shark.last_seen
+                        ? new Date(shark.last_seen).toLocaleDateString('en')
+                        : '—'}
+                    </span>
+                    <span className="stat-lbl">Last Seen</span>
                   </div>
                 </div>
               </div>
@@ -145,7 +155,7 @@ export default function SharkDetail() {
                 {shark.all_photos.map(p => (
                   <div
                     key={p.id}
-                    className={`strip-photo${p.id === shark.main_photo_id?.toString() ? ' primary' : ''}`}
+                    className={`strip-photo${p.id === shark.main_photo_id ? ' primary' : ''}`}
                     data-clickable=""
                     onClick={() => p.url && setLightboxIndex(shark.all_photos.indexOf(p))}
                   >

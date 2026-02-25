@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -32,15 +32,14 @@ class PhotoOut(BaseModel):
     is_profile_photo: bool
     shark_bbox: Optional[Dict[str, float]] = None
     zone_bbox: Optional[Dict[str, float]] = None
-    orientation: Optional[str] = None
+    orientation: Optional[Literal["face_left", "face_right"]] = None
     auto_detected: bool = False
     # Presigned URL injected at response time (not a DB column)
     url: Optional[str] = None
 
 
 class ValidateRequest(BaseModel):
-    # action: "confirm" | "select" | "create" | "unlink"
-    action: str
+    action: Literal["confirm", "select", "create", "unlink"]
     shark_id: Optional[UUID] = None    # required for "confirm" and "select"
     shark_name: Optional[str] = None   # required for "create"
     name_status: str = "temporary"     # for "create"
@@ -50,4 +49,4 @@ class ValidateRequest(BaseModel):
 class AnnotateRequest(BaseModel):
     shark_bbox: BBox
     zone_bbox: BBox
-    orientation: Optional[str] = None   # "face_left" | "face_right"
+    orientation: Optional[Literal["face_left", "face_right"]] = None

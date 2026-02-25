@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 class ObservationUpdate(BaseModel):
     shark_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
+    dive_session_id: Optional[UUID] = None
     taken_at: Optional[datetime] = None
     comment: Optional[str] = None
     confirm: bool = False  # set True to confirm; irreversible
@@ -25,3 +26,5 @@ class ObservationOut(BaseModel):
     comment: Optional[str]
     confirmed_at: Optional[datetime]
     created_at: datetime
+    # Populated from linked photo at GET time (not a DB column on observation)
+    exif_payload: Optional[Dict[str, Any]] = None

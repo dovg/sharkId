@@ -5,17 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
-from app.config import settings
 from app.database import get_db
 from app.models.observation import Observation
 from app.models.photo import Photo
 from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.observation import ObservationOut
-from app.schemas.photo import PhotoOut
 from app.schemas.shark import SharkCreate, SharkDetail, SharkOut, SharkUpdate
-from app.storage.minio import get_presigned_url
 from app.utils.names import suggest_name
+from app.utils.photo import enrich_photo, photo_url
 
 router = APIRouter(prefix="/sharks", tags=["sharks"])
 
@@ -25,23 +23,6 @@ def _get_or_404(db: Session, shark_id: UUID) -> Shark:
     if not s:
         raise HTTPException(status_code=404, detail="Shark not found")
     return s
-
-
-def _photo_url(photo: Photo) -> str:
-    if settings.photo_base_url:
-        return f"{settings.photo_base_url}/{photo.object_key}"
-    try:
-        return get_presigned_url(photo.object_key)
-    except Exception:
-        return ""
-
-
-def _enrich_photo(photo: Photo) -> PhotoOut:
-    out = PhotoOut.model_validate(photo)
-    url = _photo_url(photo)
-    if url:
-        out.url = url
-    return out
 
 
 @router.get("/suggest-name")
@@ -73,7 +54,7 @@ def list_sharks(
     for s in sharks:
         out = SharkOut.model_validate(s)
         if s.main_photo_id and s.main_photo_id in photos_by_id:
-            out.main_photo_url = _photo_url(photos_by_id[s.main_photo_id])
+            out.main_photo_url = photo_url(photos_by_id[s.main_photo_id])
         result.append(out)
     return result
 
@@ -111,15 +92,23 @@ def get_shark(
         .order_by(Observation.taken_at.desc().nullslast())
         .all()
     )
+
+    # Req11: compute first/last seen from observation taken_at
+    obs_dates = [o.taken_at for o in observations if o.taken_at is not None]
+    first_seen = min(obs_dates) if obs_dates else None
+    last_seen = max(obs_dates) if obs_dates else None
+
     detail = SharkDetail.model_validate(shark)
-    detail.all_photos = [_enrich_photo(p) for p in all_photos]
-    detail.profile_photos = [_enrich_photo(p) for p in profile_photos]
+    detail.all_photos = [enrich_photo(p) for p in all_photos]
+    detail.profile_photos = [enrich_photo(p) for p in profile_photos]
     detail.observations = [ObservationOut.model_validate(o) for o in observations]
     detail.sighting_count = len(observations)
+    detail.first_seen = first_seen
+    detail.last_seen = last_seen
     if shark.main_photo_id:
         main = next((p for p in all_photos if p.id == shark.main_photo_id), None)
         if main:
-            detail.main_photo_url = _photo_url(main)
+            detail.main_photo_url = photo_url(main)
     return detail
 
 
@@ -150,5 +139,5 @@ def update_shark(
     if shark.main_photo_id:
         photo = db.get(Photo, shark.main_photo_id)
         if photo:
-            out.main_photo_url = _photo_url(photo)
+            out.main_photo_url = photo_url(photo)
     return out

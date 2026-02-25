@@ -202,6 +202,14 @@ export default function DiveSessionDetail() {
                   <span className="stat-lbl">Observations</span>
                 </div>
               </div>
+              {session.location_id && (
+                <div className="muted mt12">
+                  📍 {(() => {
+                    const loc = locations.find(l => l.id === session.location_id)
+                    return loc ? `${loc.spot_name}, ${loc.country}` : '—'
+                  })()}
+                </div>
+              )}
               {session.comment && (
                 <div className="muted mt12">{session.comment}</div>
               )}

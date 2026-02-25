@@ -6,6 +6,8 @@ import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
 import type { Candidate, Photo, Shark } from '../types'
 
+type SharkMap = Record<string, Shark>
+
 export default function ValidationQueue() {
   const [queue, setQueue] = useState<Photo[]>([])
   const [idx, setIdx] = useState(0)
@@ -23,12 +25,18 @@ export default function ValidationQueue() {
   // Shark picker modal
   const [showPicker, setShowPicker] = useState(false)
   const [sharks, setSharks] = useState<Shark[]>([])
+  const [sharksMap, setSharksMap] = useState<SharkMap>({})
   const [sharkSearch, setSharkSearch] = useState('')
   const [pickedShark, setPickedShark] = useState<Shark | null>(null)
 
   useEffect(() => {
-    getValidationQueue()
-      .then(q => { setQueue(q); setIdx(0) })
+    Promise.all([getValidationQueue(), getSharks()])
+      .then(([q, s]) => {
+        setQueue(q)
+        setIdx(0)
+        setSharks(s)
+        setSharksMap(Object.fromEntries(s.map(sh => [sh.id, sh])))
+      })
       .catch(() => setError('Failed to load queue'))
       .finally(() => setLoading(false))
   }, [])
@@ -70,8 +78,6 @@ export default function ValidationQueue() {
   }
 
   const openPicker = async () => {
-    const list = await getSharks().catch(() => [] as Shark[])
-    setSharks(list)
     setSharkSearch('')
     setPickedShark(null)
     setShowPicker(true)
@@ -253,29 +259,41 @@ export default function ValidationQueue() {
                     </div>
                   ) : (
                     <div className="candidates-list">
-                      {photo.top5_candidates.map((c, i) => (
-                        <div
-                          key={c.shark_id}
-                          className={`candidate-item${selectedCandidate?.shark_id === c.shark_id ? ' selected' : ''}`}
-                          onClick={() => setSelectedCandidate(c)}
-                        >
-                          <div className={`candidate-rank${i === 0 ? ' rank-1' : ''}`}>
-                            {i + 1}
-                          </div>
-                          <div className="candidate-info">
-                            <div className="candidate-name">{c.display_name}</div>
-                            <div className="score-bar">
-                              <div
-                                className="score-fill"
-                                style={{ width: `${Math.round(c.score * 100)}%` }}
+                      {photo.top5_candidates.map((c, i) => {
+                        const sharkThumb = sharksMap[c.shark_id]?.main_photo_url
+                        return (
+                          <div
+                            key={c.shark_id}
+                            className={`candidate-item${selectedCandidate?.shark_id === c.shark_id ? ' selected' : ''}`}
+                            onClick={() => setSelectedCandidate(c)}
+                          >
+                            <div className={`candidate-rank${i === 0 ? ' rank-1' : ''}`}>
+                              {i + 1}
+                            </div>
+                            {sharkThumb ? (
+                              <img
+                                src={sharkThumb}
+                                alt=""
+                                style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                               />
+                            ) : (
+                              <div style={{ width: 36, height: 36, background: '#e5eaf0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🦈</div>
+                            )}
+                            <div className="candidate-info">
+                              <div className="candidate-name">{c.display_name}</div>
+                              <div className="score-bar">
+                                <div
+                                  className="score-fill"
+                                  style={{ width: `${Math.round(c.score * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="score-pct">
+                              {Math.round(c.score * 100)}%
                             </div>
                           </div>
-                          <div className="score-pct">
-                            {Math.round(c.score * 100)}%
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>

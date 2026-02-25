@@ -1,47 +1,60 @@
 """
-Thread-safe in-memory embedding store backed by a pickle file.
+Thread-safe in-memory embedding store backed by a JSON + numpy file.
 
 Each entry is a dict with keys:
   shark_id    : str  (UUID as string)
   display_name: str
+  photo_id    : str
+  orientation : str
   embedding   : np.ndarray  (106-dim float32, L2-normalised)
 
 The store is loaded from disk on first access and persisted after every write.
-The pickle file location is controlled by the EMBEDDINGS_PATH env var
-(default: /app/data/embeddings.pkl).
+The data directory is controlled by the EMBEDDINGS_PATH env var
+(default: /app/data/embeddings).  Two files are written:
+  <path>.json  — metadata list (shark_id, display_name, photo_id, orientation)
+  <path>.npy   — numpy array of shape (N, 106)
 """
 
+import json
 import os
-import pickle
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
 
-_STORE_PATH = Path(os.getenv("EMBEDDINGS_PATH", "/app/data/embeddings.pkl"))
+_BASE_PATH = Path(os.getenv("EMBEDDINGS_PATH", "/app/data/embeddings"))
+_JSON_PATH = _BASE_PATH.with_suffix(".json")
+_NPY_PATH = _BASE_PATH.with_suffix(".npy")
 
 
 class EmbeddingStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._entries: List[Dict] = []
+        self._meta: List[Dict] = []        # metadata without embeddings
+        self._vectors: np.ndarray = np.empty((0, 106), dtype=np.float32)
         self._load()
 
     # ── persistence ──────────────────────────────────────────────────────────
 
     def _load(self) -> None:
-        if _STORE_PATH.exists():
+        if _JSON_PATH.exists() and _NPY_PATH.exists():
             try:
-                with open(_STORE_PATH, "rb") as fh:
-                    self._entries = pickle.load(fh)
+                with open(_JSON_PATH) as fh:
+                    self._meta = json.load(fh)
+                self._vectors = np.load(str(_NPY_PATH))
+                if len(self._meta) != len(self._vectors):
+                    self._meta = []
+                    self._vectors = np.empty((0, 106), dtype=np.float32)
             except Exception:
-                self._entries = []
+                self._meta = []
+                self._vectors = np.empty((0, 106), dtype=np.float32)
 
     def _save(self) -> None:
-        _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(_STORE_PATH, "wb") as fh:
-            pickle.dump(self._entries, fh)
+        _BASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_JSON_PATH, "w") as fh:
+            json.dump(self._meta, fh)
+        np.save(str(_NPY_PATH), self._vectors)
 
     # ── public API ───────────────────────────────────────────────────────────
 
@@ -53,35 +66,38 @@ class EmbeddingStore:
         photo_id: str = "",
         orientation: str = "",
     ) -> None:
-        """Add or replace the embedding for (shark_id, photo_id) and persist.
-
-        Using photo_id as part of the key allows a shark to accumulate one
-        embedding per annotated photo rather than being limited to one total.
-        """
+        """Add or replace the embedding for (shark_id, photo_id) and persist."""
         with self._lock:
-            for entry in self._entries:
+            for i, entry in enumerate(self._meta):
                 if entry["shark_id"] == shark_id and entry.get("photo_id", "") == photo_id:
                     entry["display_name"] = display_name
-                    entry["embedding"] = embedding
                     entry["orientation"] = orientation
+                    self._vectors[i] = embedding.astype(np.float32)
                     self._save()
                     return
-            self._entries.append({
+            self._meta.append({
                 "shark_id": shark_id,
                 "display_name": display_name,
                 "photo_id": photo_id,
                 "orientation": orientation,
-                "embedding": embedding,
             })
+            self._vectors = np.vstack([
+                self._vectors,
+                embedding.astype(np.float32).reshape(1, -1),
+            ])
             self._save()
 
     def get_all(self) -> List[Dict]:
+        """Return list of entries with 'embedding' key added."""
         with self._lock:
-            return list(self._entries)
+            result = []
+            for i, entry in enumerate(self._meta):
+                result.append({**entry, "embedding": self._vectors[i]})
+            return result
 
     def count(self) -> int:
         with self._lock:
-            return len(self._entries)
+            return len(self._meta)
 
 
 # Module-level singleton — instantiated once when the module is imported.

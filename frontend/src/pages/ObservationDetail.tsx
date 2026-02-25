@@ -1,32 +1,41 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getLocations, getObservation, getPhoto, updateObservation } from '../api'
+import { getDiveSessions, getLocations, getObservation, getPhoto, getSharks, updateObservation } from '../api'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { Location, Observation, Photo } from '../types'
+import type { DiveSession, Location, Observation, Photo, Shark } from '../types'
 
 export default function ObservationDetail() {
   const { id } = useParams<{ id: string }>()
   const [obs, setObs] = useState<Observation | null>(null)
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
+  const [sharks, setSharks] = useState<Shark[]>([])
+  const [sessions, setSessions] = useState<DiveSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [exifOpen, setExifOpen] = useState(false)
   const [form, setForm] = useState({
+    shark_id: '',
     location_id: '',
+    dive_session_id: '',
     taken_at: '',
     comment: '',
   })
 
   useEffect(() => {
     if (!id) return
-    Promise.all([getObservation(id), getLocations()])
-      .then(([o, l]) => {
+    Promise.all([getObservation(id), getLocations(), getSharks(), getDiveSessions()])
+      .then(([o, l, s, d]) => {
         setObs(o)
         setLocations(l)
+        setSharks(s)
+        setSessions(d)
         setForm({
+          shark_id: o.shark_id ?? '',
           location_id: o.location_id ?? '',
+          dive_session_id: o.dive_session_id ?? '',
           taken_at: o.taken_at ? o.taken_at.slice(0, 16) : '',
           comment: o.comment ?? '',
         })
@@ -41,7 +50,9 @@ export default function ObservationDetail() {
     setSaving(true)
     try {
       const body: Parameters<typeof updateObservation>[1] = {}
+      if (form.shark_id) body.shark_id = form.shark_id
       if (form.location_id) body.location_id = form.location_id
+      if (form.dive_session_id) body.dive_session_id = form.dive_session_id
       if (form.taken_at) body.taken_at = new Date(form.taken_at).toISOString()
       body.comment = form.comment
       const updated = await updateObservation(obs.id, body)
@@ -90,6 +101,7 @@ export default function ObservationDetail() {
 
   const isConfirmed = !!obs.confirmed_at
   const locMap = Object.fromEntries(locations.map(l => [l.id, l]))
+  const exifEntries = obs.exif_payload ? Object.entries(obs.exif_payload).filter(([k]) => k !== 'GPSInfo') : []
 
   return (
     <div className="app">
@@ -115,7 +127,7 @@ export default function ObservationDetail() {
           {error && <div className="alert-error">{error}</div>}
 
           <div className="grid2">
-            {/* Left: photo + links */}
+            {/* Left: photo + info links */}
             <div className="card">
               <div className="card-body">
                 {photo?.url ? (
@@ -190,6 +202,31 @@ export default function ObservationDetail() {
                     </span>
                   </div>
                 </div>
+
+                {/* Req8: collapsible EXIF panel */}
+                {exifEntries.length > 0 && (
+                  <div className="mt16">
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setExifOpen(v => !v)}
+                      style={{ fontSize: 12 }}
+                    >
+                      {exifOpen ? '▲ Hide EXIF data' : '▼ Show EXIF data'}
+                    </button>
+                    {exifOpen && (
+                      <div className="exif-table mt8" style={{ maxHeight: 300, overflowY: 'auto' }}>
+                        {exifEntries.map(([k, v]) => (
+                          <div key={k} className="exif-row">
+                            <span className="exif-key" style={{ fontSize: 11 }}>{k}</span>
+                            <span style={{ fontSize: 11, wordBreak: 'break-all' }}>
+                              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -199,6 +236,42 @@ export default function ObservationDetail() {
                 <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
                   Details
                 </div>
+
+                {/* Req6: shark selector */}
+                <div className="form-group">
+                  <label className="form-label">Shark</label>
+                  <select
+                    value={form.shark_id}
+                    onChange={e => setForm(f => ({ ...f, shark_id: e.target.value }))}
+                    disabled={isConfirmed}
+                  >
+                    <option value="">— Not identified —</option>
+                    {sharks.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.display_name} ({s.name_status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Req9: session selector */}
+                <div className="form-group">
+                  <label className="form-label">Dive Session</label>
+                  <select
+                    value={form.dive_session_id}
+                    onChange={e => setForm(f => ({ ...f, dive_session_id: e.target.value }))}
+                    disabled={isConfirmed}
+                  >
+                    <option value="">— No session —</option>
+                    {sessions.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {new Date(s.started_at).toLocaleDateString('en')}
+                        {s.comment ? ` — ${s.comment}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Date & Time</label>
                   <input

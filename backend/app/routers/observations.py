@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.database import get_db
+from app.models.dive_session import DiveSession
+from app.models.location import Location
 from app.models.observation import Observation
+from app.models.photo import Photo
+from app.models.shark import Shark
 from app.models.user import User
 from app.schemas.observation import ObservationOut, ObservationUpdate
 
@@ -20,13 +24,24 @@ def _get_or_404(db: Session, obs_id: UUID) -> Observation:
     return obs
 
 
+def _to_out(obs: Observation, db: Session) -> ObservationOut:
+    """Convert observation to output schema, injecting exif_payload from linked photo."""
+    out = ObservationOut.model_validate(obs)
+    if obs.photo_id:
+        photo = db.get(Photo, obs.photo_id)
+        if photo and photo.exif_payload:
+            out.exif_payload = photo.exif_payload
+    return out
+
+
 @router.get("/{observation_id}", response_model=ObservationOut)
 def get_observation(
     observation_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return _get_or_404(db, observation_id)
+    obs = _get_or_404(db, observation_id)
+    return _to_out(obs, db)
 
 
 @router.put("/{observation_id}", response_model=ObservationOut)
@@ -40,6 +55,14 @@ def update_observation(
     if obs.confirmed_at is not None:
         raise HTTPException(status_code=409, detail="Confirmed observations cannot be edited")
 
+    # M5: validate foreign keys before applying changes
+    if body.shark_id is not None and not db.get(Shark, body.shark_id):
+        raise HTTPException(status_code=404, detail="Shark not found")
+    if body.location_id is not None and not db.get(Location, body.location_id):
+        raise HTTPException(status_code=404, detail="Location not found")
+    if body.dive_session_id is not None and not db.get(DiveSession, body.dive_session_id):
+        raise HTTPException(status_code=404, detail="Dive session not found")
+
     for field, value in body.model_dump(exclude_unset=True, exclude={"confirm"}).items():
         setattr(obs, field, value)
 
@@ -48,4 +71,4 @@ def update_observation(
 
     db.commit()
     db.refresh(obs)
-    return obs
+    return _to_out(obs, db)
