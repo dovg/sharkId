@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getDiveSession, getSessionVideos, uploadPhoto, uploadVideo } from '../api'
+import { deleteVideo, getDiveSession, getSessionVideos, uploadPhoto, uploadVideo } from '../api'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
 import type { DiveSessionDetail as DSDetail, Photo, Video } from '../types'
@@ -71,6 +71,17 @@ export default function DiveSessionDetail() {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleDeleteVideo = async (videoId: string) => {
+    if (!id) return
+    if (!window.confirm('Delete this video? This cannot be undone.')) return
+    try {
+      await deleteVideo(id, videoId)
+      setVideos(prev => prev.filter(v => v.id !== videoId))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
     }
   }
 
@@ -241,6 +252,13 @@ export default function DiveSessionDetail() {
                         {(v.processing_status === 'uploaded' || v.processing_status === 'processing') && (
                           <span className="muted" style={{ fontSize: 12, marginLeft: 6 }}>processing…</span>
                         )}
+                        <button
+                          className="btn btn-danger btn-sm"
+                          style={{ marginLeft: 10 }}
+                          onClick={() => handleDeleteVideo(v.id)}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   )

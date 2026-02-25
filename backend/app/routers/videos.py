@@ -15,7 +15,7 @@ from app.models.photo import Photo, ProcessingStatus
 from app.models.user import User
 from app.models.video import Video, VideoStatus
 from app.schemas.video import VideoOut
-from app.storage.minio import upload_file
+from app.storage.minio import delete_file, upload_file
 
 router = APIRouter(tags=["videos"])
 
@@ -169,6 +169,27 @@ async def upload_video(
     background_tasks.add_task(_process_video, video.id)
 
     return VideoOut.model_validate(video)
+
+
+@router.delete(
+    "/dive-sessions/{session_id}/videos/{video_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_video(
+    session_id: UUID,
+    video_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    video = db.get(Video, video_id)
+    if not video or video.dive_session_id != session_id:
+        raise HTTPException(status_code=404, detail="Video not found")
+    try:
+        delete_file(video.object_key)
+    except Exception:
+        pass
+    db.delete(video)
+    db.commit()
 
 
 @router.get("/dive-sessions/{session_id}/videos", response_model=List[VideoOut])

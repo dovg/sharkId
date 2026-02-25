@@ -99,6 +99,9 @@ export const uploadVideo = (sessionId: string, file: File) => {
 export const getSessionVideos = (sessionId: string) =>
   req<Video[]>(`/dive-sessions/${sessionId}/videos`)
 
+export const deleteVideo = (sessionId: string, videoId: string) =>
+  req<void>(`/dive-sessions/${sessionId}/videos/${videoId}`, { method: 'DELETE' })
+
 export const getPhoto = (id: string) => req<Photo>(`/photos/${id}`)
 
 export const deletePhoto = (id: string) => req<void>(`/photos/${id}`, { method: 'DELETE' })
