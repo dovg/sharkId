@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getDiveSessions, getLocations, getObservation, getPhoto, getSharks, updateObservation } from '../api'
+import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
 import type { DiveSession, Location, Observation, Photo, Shark } from '../types'
 
 export default function ObservationDetail() {
   const { id } = useParams<{ id: string }>()
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [obs, setObs] = useState<Observation | null>(null)
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
@@ -100,6 +103,7 @@ export default function ObservationDetail() {
     )
 
   const isConfirmed = !!obs.confirmed_at
+  const isReadOnly = isConfirmed || !canEdit
   const locMap = Object.fromEntries(locations.map(l => [l.id, l]))
   const exifEntries = obs.exif_payload ? Object.entries(obs.exif_payload).filter(([k]) => k !== 'GPSInfo') : []
 
@@ -158,7 +162,7 @@ export default function ObservationDetail() {
                 ) : (
                   <div className="photo-preview-box mb16">📷</div>
                 )}
-                {photo && (
+                {photo && canEdit && (
                   <div className="mb16">
                     <Link to={`/photos/${photo.id}`} className="btn btn-outline btn-sm">
                       Edit Photo Annotation
@@ -243,7 +247,7 @@ export default function ObservationDetail() {
                   <select
                     value={form.shark_id}
                     onChange={e => setForm(f => ({ ...f, shark_id: e.target.value }))}
-                    disabled={isConfirmed}
+                    disabled={isReadOnly}
                   >
                     <option value="">— Not identified —</option>
                     {sharks.map(s => (
@@ -260,7 +264,7 @@ export default function ObservationDetail() {
                   <select
                     value={form.dive_session_id}
                     onChange={e => setForm(f => ({ ...f, dive_session_id: e.target.value }))}
-                    disabled={isConfirmed}
+                    disabled={isReadOnly}
                   >
                     <option value="">— No session —</option>
                     {sessions.map(s => (
@@ -278,7 +282,7 @@ export default function ObservationDetail() {
                     type="datetime-local"
                     value={form.taken_at}
                     onChange={e => setForm(f => ({ ...f, taken_at: e.target.value }))}
-                    disabled={isConfirmed}
+                    disabled={isReadOnly}
                   />
                 </div>
                 <div className="form-group">
@@ -288,7 +292,7 @@ export default function ObservationDetail() {
                     onChange={e =>
                       setForm(f => ({ ...f, location_id: e.target.value }))
                     }
-                    disabled={isConfirmed}
+                    disabled={isReadOnly}
                   >
                     <option value="">— No location —</option>
                     {locations.map(l => (
@@ -304,7 +308,7 @@ export default function ObservationDetail() {
                     rows={3}
                     value={form.comment}
                     onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
-                    disabled={isConfirmed}
+                    disabled={isReadOnly}
                   />
                 </div>
 
@@ -313,7 +317,7 @@ export default function ObservationDetail() {
                     ✓ Confirmed on{' '}
                     {new Date(obs.confirmed_at!).toLocaleString('en')}
                   </div>
-                ) : (
+                ) : canEdit ? (
                   <div className="flex-gap8">
                     <button
                       className="btn btn-outline"
@@ -330,7 +334,7 @@ export default function ObservationDetail() {
                       Confirm Observation
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

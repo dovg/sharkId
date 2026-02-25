@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_editor
 from app.database import get_db
 from app.models.audit_log import A
 from app.models.dive_session import DiveSession
@@ -117,7 +117,7 @@ def create_session(
     body: DiveSessionCreate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     session = DiveSession(**body.model_dump())
     db.add(session)
@@ -156,7 +156,7 @@ def update_session(
     body: DiveSessionUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     s = _get_or_404(db, session_id)
     for field, value in body.model_dump(exclude_unset=True).items():
@@ -172,7 +172,7 @@ def delete_session(
     session_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     s = _get_or_404(db, session_id)
     log_event(db, current_user, A.SESSION_DELETE, resource_type="session", resource_id=session_id, request=request)

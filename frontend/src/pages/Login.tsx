@@ -8,7 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setToken } = useAuth()
+  const { setAuth } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,8 +16,8 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const { access_token } = await login(email, password)
-      setToken(access_token)
+      const { access_token, role, email: userEmail } = await login(email, password)
+      setAuth(access_token, role, userEmail)
       navigate('/dive-sessions')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed')

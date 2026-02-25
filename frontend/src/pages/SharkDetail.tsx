@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteShark, getAuditLog, getShark, updateShark } from '../api'
+import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
@@ -11,6 +12,8 @@ import type { AuditEvent, SharkDetail as SharkDetailType } from '../types'
 export default function SharkDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [shark, setShark] = useState<SharkDetailType | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -92,26 +95,28 @@ export default function SharkDetail() {
             </div>
             <h1 className="page-title">{shark.display_name}</h1>
           </div>
-          <div className="flex-gap8">
-            <button className="btn btn-outline" onClick={() => setShowRename(true)}>
-              Rename
-            </button>
-            <button
-              className="btn btn-danger"
-              onClick={async () => {
-                if (!shark) return
-                if (!window.confirm(`Delete "${shark.display_name}"? Photos and observations will be unlinked.`)) return
-                try {
-                  await deleteShark(shark.id)
-                  navigate('/sharks')
-                } catch (err: unknown) {
-                  setError(err instanceof Error ? err.message : 'Failed to delete')
-                }
-              }}
-            >
-              Delete
-            </button>
-          </div>
+          {canEdit && (
+            <div className="flex-gap8">
+              <button className="btn btn-outline" onClick={() => setShowRename(true)}>
+                Rename
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={async () => {
+                  if (!shark) return
+                  if (!window.confirm(`Delete "${shark.display_name}"? Photos and observations will be unlinked.`)) return
+                  try {
+                    await deleteShark(shark.id)
+                    navigate('/sharks')
+                  } catch (err: unknown) {
+                    setError(err instanceof Error ? err.message : 'Failed to delete')
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}
@@ -167,13 +172,15 @@ export default function SharkDetail() {
                     onClick={() => p.url && setLightboxIndex(shark.all_photos.indexOf(p))}
                   >
                     {p.url ? <img src={p.url} alt="" /> : '📷'}
-                    <button
-                      className="strip-set-main"
-                      title="Set as main photo"
-                      onClick={e => { e.stopPropagation(); handleSetMain(p.id) }}
-                    >
-                      ★
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="strip-set-main"
+                        title="Set as main photo"
+                        onClick={e => { e.stopPropagation(); handleSetMain(p.id) }}
+                      >
+                        ★
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

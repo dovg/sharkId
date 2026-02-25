@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_editor
 from app.database import get_db
 from app.models.audit_log import A
 from app.models.observation import Observation
@@ -66,7 +66,7 @@ def create_shark(
     body: SharkCreate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     shark = Shark(**body.model_dump())
     db.add(shark)
@@ -127,7 +127,7 @@ def delete_shark(
     shark_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     shark = _get_or_404(db, shark_id)
     log_event(db, current_user, A.SHARK_DELETE, resource_type="shark", resource_id=shark_id, request=request)
@@ -141,7 +141,7 @@ def update_shark(
     body: SharkUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     shark = _get_or_404(db, shark_id)
     for field, value in body.model_dump(exclude_unset=True).items():

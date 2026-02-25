@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_editor
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models.audit_log import A
@@ -130,7 +130,7 @@ async def upload_video(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     if not db.get(DiveSession, session_id):
         raise HTTPException(status_code=404, detail="Dive session not found")
@@ -199,7 +199,7 @@ def delete_video(
     video_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     video = db.get(Video, video_id)
     if not video or video.dive_session_id != session_id:

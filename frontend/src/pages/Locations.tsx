@@ -5,11 +5,14 @@ import {
   getLocations,
   updateLocation,
 } from '../api'
+import { useAuth } from '../auth'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
 import type { Location } from '../types'
 
 export default function Locations() {
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -109,19 +112,21 @@ export default function Locations() {
               onChange={e => setSearch(e.target.value)}
               style={{ width: 220 }}
             />
-            <button
-              className="btn btn-primary"
-              onClick={() => setShowForm(v => !v)}
-            >
-              + Add Location
-            </button>
+            {canEdit && (
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowForm(v => !v)}
+              >
+                + Add Location
+              </button>
+            )}
           </div>
         </div>
 
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}
 
-          {showForm && (
+          {canEdit && showForm && (
             <div className="inline-form mb16">
               <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
                 Add Location
@@ -215,20 +220,22 @@ export default function Locations() {
                             : '—'}
                         </td>
                         <td>
-                          <div className="flex-gap8">
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => openEdit(l)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => handleDelete(l.id)}
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          {canEdit && (
+                            <div className="flex-gap8">
+                              <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => openEdit(l)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => handleDelete(l.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))

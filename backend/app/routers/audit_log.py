@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import require_editor
 from app.database import get_db
 from app.models.audit_log import AuditLog
 from app.models.user import User
@@ -20,7 +20,7 @@ def get_audit_log(
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_editor),
 ):
     query = db.query(AuditLog)
     if resource_type:

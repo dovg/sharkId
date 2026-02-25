@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_editor
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models.audit_log import A
@@ -128,7 +128,7 @@ async def upload_photo(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     # Validate session exists
     if not db.get(DiveSession, session_id):
@@ -204,7 +204,7 @@ async def upload_photo(
 @router.get("/photos/validation-queue/count")
 def validation_queue_count(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_editor),
 ):
     count = (
         db.query(Photo)
@@ -217,7 +217,7 @@ def validation_queue_count(
 @router.get("/photos/validation-queue", response_model=List[PhotoOut])
 def validation_queue(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_editor),
 ):
     photos = (
         db.query(Photo)
@@ -288,7 +288,7 @@ async def annotate_photo(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     """Save user-drawn annotation (shark bbox + zone bbox + orientation) and
     re-trigger ML classification using the annotated region."""
@@ -315,7 +315,7 @@ def delete_photo(
     photo_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     photo = _get_photo_or_404(db, photo_id)
     log_event(db, current_user, A.PHOTO_DELETE, resource_type="photo", resource_id=photo_id, request=request)
@@ -336,7 +336,7 @@ def validate_photo(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     photo = _get_photo_or_404(db, photo_id)
     if photo.processing_status != ProcessingStatus.ready_for_validation:

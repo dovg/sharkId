@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { annotatePhoto, deletePhoto, getAuditLog, getPhoto } from '../api'
+import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
@@ -60,6 +61,8 @@ function DrawOverlay({ saved, live, onMouseDown, onMouseMove, onMouseUp }: DrawO
 export default function PhotoDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -233,13 +236,15 @@ export default function PhotoDetail() {
           </div>
           <div className="flex-gap8" style={{ alignItems: 'center' }}>
             <StatusBadge status={photo.processing_status} />
-            <button
-              className="btn btn-danger btn-sm"
-              disabled={deleting}
-              onClick={handleDelete}
-            >
-              {deleting ? 'Deleting…' : 'Delete Photo'}
-            </button>
+            {canEdit && (
+              <button
+                className="btn btn-danger btn-sm"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? 'Deleting…' : 'Delete Photo'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -253,13 +258,21 @@ export default function PhotoDetail() {
               {step === 1 && photo.url && (
                 <div className="annot-photo-wrap">
                   <img src={photo.url} alt="" draggable={false} />
-                  <DrawOverlay
-                    saved={sharkRect}
-                    live={liveRect}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                  />
+                  {canEdit ? (
+                    <DrawOverlay
+                      saved={sharkRect}
+                      live={liveRect}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                    />
+                  ) : sharkRect && (
+                    <svg className="annot-svg" viewBox="0 0 1 1" preserveAspectRatio="none"
+                      style={{ cursor: 'default', pointerEvents: 'none' }}>
+                      <rect x={sharkRect.x} y={sharkRect.y} width={sharkRect.w} height={sharkRect.h}
+                        fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003" />
+                    </svg>
+                  )}
                 </div>
               )}
 
@@ -273,13 +286,21 @@ export default function PhotoDetail() {
                   style={{ aspectRatio: `${sharkRect.w} / ${sharkRect.h}` }}
                 >
                   <canvas ref={cropCanvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
-                  <DrawOverlay
-                    saved={zoneRect}
-                    live={liveRect}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                  />
+                  {canEdit ? (
+                    <DrawOverlay
+                      saved={zoneRect}
+                      live={liveRect}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                    />
+                  ) : zoneRect && (
+                    <svg className="annot-svg" viewBox="0 0 1 1" preserveAspectRatio="none"
+                      style={{ cursor: 'default', pointerEvents: 'none' }}>
+                      <rect x={zoneRect.x} y={zoneRect.y} width={zoneRect.w} height={zoneRect.h}
+                        fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003" />
+                    </svg>
+                  )}
                 </div>
               )}
 
@@ -370,50 +391,52 @@ export default function PhotoDetail() {
                   )}
 
                   {/* Navigation buttons */}
-                  <div className="flex-gap8">
-                    {step > 1 && (
-                      <button className="btn btn-outline btn-sm" onClick={() => setStep(s => (s - 1) as 1 | 2 | 3)}>
-                        ← Back
-                      </button>
-                    )}
-                    {step === 1 && (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        disabled={!sharkRect}
-                        onClick={() => setStep(2)}
-                      >
-                        Next →
-                      </button>
-                    )}
-                    {step === 2 && (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        disabled={!zoneRect}
-                        onClick={() => setStep(3)}
-                      >
-                        Next →
-                      </button>
-                    )}
-                    {step === 3 && (
-                      <button
-                        className="btn btn-teal btn-sm"
-                        disabled={!orientation || submitting}
-                        onClick={handleSubmit}
-                      >
-                        {submitting ? 'Saving…' : 'Confirm Annotation'}
-                      </button>
-                    )}
-                    {step === 1 && sharkRect && (
-                      <button className="btn btn-ghost btn-sm" onClick={() => { setSharkRect(null); setLiveRect(null) }}>
-                        Reset
-                      </button>
-                    )}
-                    {step === 2 && zoneRect && (
-                      <button className="btn btn-ghost btn-sm" onClick={() => { setZoneRect(null); setLiveRect(null) }}>
-                        Reset
-                      </button>
-                    )}
-                  </div>
+                  {canEdit && (
+                    <div className="flex-gap8">
+                      {step > 1 && (
+                        <button className="btn btn-outline btn-sm" onClick={() => setStep(s => (s - 1) as 1 | 2 | 3)}>
+                          ← Back
+                        </button>
+                      )}
+                      {step === 1 && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={!sharkRect}
+                          onClick={() => setStep(2)}
+                        >
+                          Next →
+                        </button>
+                      )}
+                      {step === 2 && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={!zoneRect}
+                          onClick={() => setStep(3)}
+                        >
+                          Next →
+                        </button>
+                      )}
+                      {step === 3 && (
+                        <button
+                          className="btn btn-teal btn-sm"
+                          disabled={!orientation || submitting}
+                          onClick={handleSubmit}
+                        >
+                          {submitting ? 'Saving…' : 'Confirm Annotation'}
+                        </button>
+                      )}
+                      {step === 1 && sharkRect && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setSharkRect(null); setLiveRect(null) }}>
+                          Reset
+                        </button>
+                      )}
+                      {step === 2 && zoneRect && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => { setZoneRect(null); setLiveRect(null) }}>
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Annotation summary (confirmed, not ML-pending) */}
                   {photo.shark_bbox && !photo.auto_detected && (

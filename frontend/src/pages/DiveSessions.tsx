@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createDiveSession, deleteDiveSession, getDiveSessions, getLocations } from '../api'
+import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import type { DiveSession, Location } from '../types'
 
 export default function DiveSessions() {
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [sessions, setSessions] = useState<DiveSession[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -70,14 +73,16 @@ export default function DiveSessions() {
             <h1 className="page-title">Dive Sessions</h1>
             <div className="page-subtitle">{sessions.length} sessions recorded</div>
           </div>
-          <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
-            + New Session
-          </button>
+          {canEdit && (
+            <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
+              + New Session
+            </button>
+          )}
         </div>
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}
 
-          {showForm && (
+          {canEdit && showForm && (
             <div className="inline-form mb16">
               <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
                 New Dive Session
@@ -188,12 +193,14 @@ export default function DiveSessions() {
                         </div>
                       )}
                     </div>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={e => handleDelete(e, s.id)}
-                    >
-                      Delete
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={e => handleDelete(e, s.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 )
               })}

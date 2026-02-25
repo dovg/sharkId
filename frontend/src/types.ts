@@ -1,3 +1,12 @@
+export type Role = 'admin' | 'editor' | 'viewer'
+
+export interface UserRecord {
+  id: string
+  email: string
+  role: Role
+  created_at: string
+}
+
 export type NameStatus = 'temporary' | 'confirmed'
 export type Orientation = 'face_left' | 'face_right'
 

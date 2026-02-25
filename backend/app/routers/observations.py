@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_editor
 from app.database import get_db
 from app.models.audit_log import A
 from app.models.dive_session import DiveSession
@@ -52,7 +52,7 @@ def update_observation(
     body: ObservationUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_editor),
 ):
     obs = _get_or_404(db, observation_id)
     if obs.confirmed_at is not None:

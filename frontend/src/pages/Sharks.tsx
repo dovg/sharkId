@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { deleteShark, getSharks } from '../api'
+import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
 import type { NameStatus, Shark } from '../types'
 
 export default function Sharks() {
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [sharks, setSharks] = useState<Shark[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -92,13 +95,15 @@ export default function Sharks() {
                     <div className="muted mt4" style={{ fontSize: 12 }}>
                       Added {new Date(s.created_at).toLocaleDateString('en')}
                     </div>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      style={{ marginTop: 10, width: '100%' }}
-                      onClick={e => handleDelete(e, s.id)}
-                    >
-                      Delete
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        style={{ marginTop: 10, width: '100%' }}
+                        onClick={e => handleDelete(e, s.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

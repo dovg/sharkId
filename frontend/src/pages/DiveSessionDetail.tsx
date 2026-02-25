@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteVideo, getAuditLog, getDiveSession, getLocations, getSessionVideos, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
+import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
@@ -8,6 +9,8 @@ import type { AuditEvent, DiveSessionDetail as DSDetail, Location, Photo, Video 
 
 export default function DiveSessionDetail() {
   const { id } = useParams<{ id: string }>()
+  const { role } = useAuth()
+  const canEdit = role !== 'viewer'
   const [session, setSession] = useState<DSDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -175,9 +178,11 @@ export default function DiveSessionDetail() {
             </div>
             <h1 className="page-title">Dive Session</h1>
           </div>
-          <button className="btn btn-outline btn-sm" onClick={() => setEditing(e => !e)}>
-            {editing ? 'Cancel' : 'Edit'}
-          </button>
+          {canEdit && (
+            <button className="btn btn-outline btn-sm" onClick={() => setEditing(e => !e)}>
+              {editing ? 'Cancel' : 'Edit'}
+            </button>
+          )}
         </div>
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}
@@ -277,57 +282,61 @@ export default function DiveSessionDetail() {
           )}
 
           {/* Upload */}
-          <div className="card mb16">
-            <div className="card-title">Upload Photos</div>
-            <div
-              className="dropzone"
-              onDrop={e => {
-                e.preventDefault()
-                handleFiles(e.dataTransfer.files)
-              }}
-              onDragOver={e => e.preventDefault()}
-              onClick={() => fileRef.current?.click()}
-            >
-              {uploading
-                ? 'Uploading…'
-                : 'Drag & drop JPEG or PNG files here, or click to browse'}
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png"
-              multiple
-              hidden
-              onChange={e => handleFiles(e.target.files)}
-            />
-          </div>
-
-          {/* Video upload */}
-          <div className="card mb16">
-            <div className="card-title">Upload Video</div>
-            <div className="card-body">
-              <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-                Upload a dive video (MP4, MOV, WebM — max 500 MB). Frames containing sharks
-                will be extracted automatically and added to the photo grid below.
-              </p>
-              <div className="flex-gap8">
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={videoUploading}
-                  onClick={() => videoRef.current?.click()}
-                >
-                  {videoUploading ? 'Uploading…' : '🎬 Choose Video File'}
-                </button>
+          {canEdit && (
+            <div className="card mb16">
+              <div className="card-title">Upload Photos</div>
+              <div
+                className="dropzone"
+                onDrop={e => {
+                  e.preventDefault()
+                  handleFiles(e.dataTransfer.files)
+                }}
+                onDragOver={e => e.preventDefault()}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading
+                  ? 'Uploading…'
+                  : 'Drag & drop JPEG or PNG files here, or click to browse'}
               </div>
               <input
-                ref={videoRef}
+                ref={fileRef}
                 type="file"
-                accept="video/mp4,video/quicktime,video/webm,video/avi,video/x-matroska"
+                accept="image/jpeg,image/png"
+                multiple
                 hidden
-                onChange={e => handleVideo(e.target.files?.[0] ?? null)}
+                onChange={e => handleFiles(e.target.files)}
               />
             </div>
-          </div>
+          )}
+
+          {/* Video upload */}
+          {canEdit && (
+            <div className="card mb16">
+              <div className="card-title">Upload Video</div>
+              <div className="card-body">
+                <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+                  Upload a dive video (MP4, MOV, WebM — max 500 MB). Frames containing sharks
+                  will be extracted automatically and added to the photo grid below.
+                </p>
+                <div className="flex-gap8">
+                  <button
+                    className="btn btn-outline btn-sm"
+                    disabled={videoUploading}
+                    onClick={() => videoRef.current?.click()}
+                  >
+                    {videoUploading ? 'Uploading…' : '🎬 Choose Video File'}
+                  </button>
+                </div>
+                <input
+                  ref={videoRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/avi,video/x-matroska"
+                  hidden
+                  onChange={e => handleVideo(e.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Video list */}
           {videos.length > 0 && (
@@ -356,13 +365,15 @@ export default function DiveSessionDetail() {
                         {(v.processing_status === 'uploaded' || v.processing_status === 'processing') && (
                           <span className="muted" style={{ fontSize: 12, marginLeft: 6 }}>processing…</span>
                         )}
-                        <button
-                          className="btn btn-danger btn-sm"
-                          style={{ marginLeft: 10 }}
-                          onClick={() => handleDeleteVideo(v.id)}
-                        >
-                          Delete
-                        </button>
+                        {canEdit && (
+                          <button
+                            className="btn btn-danger btn-sm"
+                            style={{ marginLeft: 10 }}
+                            onClick={() => handleDeleteVideo(v.id)}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   )

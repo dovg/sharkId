@@ -7,8 +7,10 @@ import type {
   Observation,
   Orientation,
   Photo,
+  Role,
   Shark,
   SharkDetail,
+  UserRecord,
   Video,
 } from './types'
 
@@ -30,6 +32,8 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   // H4/H5: redirect to login on 401
   if (resp.status === 401) {
     localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    localStorage.removeItem('email')
     window.location.href = '/login'
     return undefined as T
   }
@@ -44,7 +48,7 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const login = (email: string, password: string) =>
-  req<{ access_token: string; token_type: string }>('/auth/login', {
+  req<{ access_token: string; token_type: string; role: string; email: string }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   })
@@ -175,3 +179,13 @@ export const getAuditLog = (params?: {
   ).toString()
   return req<AuditEvent[]>(`/audit-log${qs ? `?${qs}` : ''}`)
 }
+
+// ── Users ──────────────────────────────────────────────────────────────────────
+export const getMe = () => req<UserRecord>('/users/me')
+export const getUsers = () => req<UserRecord[]>('/users')
+export const createUser = (data: { email: string; password: string; role: Role }) =>
+  req<UserRecord>('/users', { method: 'POST', body: JSON.stringify(data) })
+export const updateUser = (id: string, data: Partial<{ email: string; password: string; role: Role }>) =>
+  req<UserRecord>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+export const deleteUser = (id: string) =>
+  req<void>(`/users/${id}`, { method: 'DELETE' })
