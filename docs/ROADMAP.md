@@ -148,6 +148,7 @@
 - ✅ PhotoDetail: "Re-run ML" button visible to editors for unlinked/error photos
 - ✅ ValidationQueue: two-tab layout — **Pending** (existing review flow) + **Unlinked** (photo grid with Re-run ML per card)
 - ✅ 3 new backend tests: recheck unlinked, recheck error, 409 for linked photo
+- ✅ ValidationQueue Unlinked tab: "Re-run ML on all (N)" button fires recheck for all unlinked photos in parallel; succeeded cards removed from grid immediately
 
 ### Running automated tests
 
