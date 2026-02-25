@@ -201,6 +201,24 @@ async def upload_photo(
 
 # ── validation queue — must be registered BEFORE /{photo_id} ─────────────────
 
+@router.get("/photos/unlinked", response_model=List[PhotoOut])
+def unlinked_photos(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_editor),
+):
+    """Photos that were explicitly left unlinked (validated, no shark)."""
+    photos = (
+        db.query(Photo)
+        .filter(
+            Photo.processing_status == ProcessingStatus.validated,
+            Photo.shark_id.is_(None),
+        )
+        .order_by(Photo.uploaded_at)
+        .all()
+    )
+    return [enrich_photo(p) for p in photos]
+
+
 @router.get("/photos/validation-queue/count")
 def validation_queue_count(
     db: Session = Depends(get_db),
@@ -301,6 +319,47 @@ async def annotate_photo(
     photo.processing_status = ProcessingStatus.processing
     photo.top5_candidates = None
     log_event(db, current_user, A.PHOTO_ANNOTATE, resource_type="photo", resource_id=photo_id, request=request)
+    db.commit()
+    db.refresh(photo)
+
+    background_tasks.add_task(_classify_photo, photo.id)
+    return enrich_photo(photo)
+
+
+# ── recheck ───────────────────────────────────────────────────────────────────
+
+@router.post("/photos/{photo_id}/recheck", response_model=PhotoOut)
+def recheck_photo(
+    photo_id: UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_editor),
+):
+    """Re-trigger ML classification for an unlinked or error photo.
+
+    Allowed when:
+      - processing_status == validated AND shark_id is None  (explicitly unlinked)
+      - processing_status == error                           (classification failed)
+    """
+    photo = _get_photo_or_404(db, photo_id)
+
+    is_unlinked = (photo.processing_status == ProcessingStatus.validated
+                   and photo.shark_id is None)
+    is_error    = photo.processing_status == ProcessingStatus.error
+
+    if not (is_unlinked or is_error):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only unlinked (validated, no shark) or error photos can be rechecked",
+        )
+
+    photo.processing_status = ProcessingStatus.processing
+    photo.top5_candidates = None
+    log_event(
+        db, current_user, A.PHOTO_RECHECK,
+        resource_type="photo", resource_id=photo_id, request=request,
+    )
     db.commit()
     db.refresh(photo)
 

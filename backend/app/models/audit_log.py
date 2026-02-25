@@ -39,6 +39,7 @@ class A:
     PHOTO_ANNOTATE = "photo.annotate"
     PHOTO_VALIDATE = "photo.validate"
     PHOTO_DELETE = "photo.delete"
+    PHOTO_RECHECK = "photo.recheck"
     VIDEO_UPLOAD = "video.upload"
     VIDEO_DELETE = "video.delete"
     SHARK_CREATE = "shark.create"

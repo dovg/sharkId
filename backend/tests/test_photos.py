@@ -208,3 +208,39 @@ def test_viewer_cannot_validate(client, viewer_headers, editor_headers, tiny_jpe
         headers=viewer_headers,
     )
     assert resp.status_code == 403
+
+
+# ── recheck ───────────────────────────────────────────────────────────────────
+
+
+def test_recheck_unlinked_photo(client, editor_headers, tiny_jpeg):
+    session_id = _create_session(client, editor_headers)
+    photo_id = _upload_photo(client, editor_headers, session_id, tiny_jpeg).json()["id"]
+    client.post(f"/photos/{photo_id}/validate",
+                json={"action": "unlink"}, headers=editor_headers)
+    resp = client.post(f"/photos/{photo_id}/recheck", headers=editor_headers)
+    assert resp.status_code == 200
+    assert resp.json()["processing_status"] in ("processing", "ready_for_validation")
+
+
+def test_recheck_error_photo(client, editor_headers, db_session, tiny_jpeg):
+    import uuid as _uuid
+    from app.models.photo import Photo, ProcessingStatus
+    session_id = _create_session(client, editor_headers)
+    photo_id = _upload_photo(client, editor_headers, session_id, tiny_jpeg).json()["id"]
+    photo = db_session.get(Photo, _uuid.UUID(photo_id))
+    photo.processing_status = ProcessingStatus.error
+    photo.shark_id = None
+    db_session.commit()
+    resp = client.post(f"/photos/{photo_id}/recheck", headers=editor_headers)
+    assert resp.status_code == 200
+
+
+def test_recheck_linked_photo_returns_409(client, editor_headers, tiny_jpeg):
+    session_id = _create_session(client, editor_headers)
+    photo_id = _upload_photo(client, editor_headers, session_id, tiny_jpeg).json()["id"]
+    shark_id = client.post("/sharks", json=_SHARK_BODY, headers=editor_headers).json()["id"]
+    client.post(f"/photos/{photo_id}/validate",
+                json={"action": "confirm", "shark_id": shark_id}, headers=editor_headers)
+    resp = client.post(f"/photos/{photo_id}/recheck", headers=editor_headers)
+    assert resp.status_code == 409

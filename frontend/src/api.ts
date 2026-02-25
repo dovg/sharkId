@@ -123,6 +123,7 @@ export const annotatePhoto = (
 ) => req<Photo>(`/photos/${id}/annotate`, { method: 'POST', body: JSON.stringify(data) })
 
 export const getValidationQueue = () => req<Photo[]>('/photos/validation-queue')
+export const getUnlinkedPhotos = () => req<Photo[]>('/photos/unlinked')
 export const getValidationQueueCount = () => req<{ count: number }>('/photos/validation-queue/count')
 
 export const validatePhoto = (
@@ -135,6 +136,9 @@ export const validatePhoto = (
     set_as_profile_photo?: boolean
   },
 ) => req<Photo>(`/photos/${id}/validate`, { method: 'POST', body: JSON.stringify(body) })
+
+export const recheckPhoto = (id: string) =>
+  req<Photo>(`/photos/${id}/recheck`, { method: 'POST' })
 
 // ── Sharks ────────────────────────────────────────────────────────────────────
 export const getSharks = () => req<Shark[]>('/sharks')

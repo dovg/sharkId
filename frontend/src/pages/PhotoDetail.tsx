@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { annotatePhoto, deletePhoto, getAuditLog, getPhoto } from '../api'
+import { annotatePhoto, deletePhoto, getAuditLog, getPhoto, recheckPhoto } from '../api'
 import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
@@ -69,6 +69,7 @@ export default function PhotoDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [rechecking, setRechecking] = useState(false)
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
 
@@ -175,6 +176,22 @@ export default function PhotoDetail() {
     }
   }
 
+  // ── recheck ───────────────────────────────────────────────────────────────
+
+  const handleRecheck = async () => {
+    if (!photo) return
+    setRechecking(true)
+    setError('')
+    try {
+      const updated = await recheckPhoto(photo.id)
+      setPhoto(updated)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Recheck failed')
+    } finally {
+      setRechecking(false)
+    }
+  }
+
   // ── delete ────────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -218,6 +235,10 @@ export default function PhotoDetail() {
     )
 
   const mlPrefilled = photo.auto_detected && !!(photo.shark_bbox && photo.zone_bbox)
+  const canRecheck = canEdit && (
+    (photo.processing_status === 'validated' && !photo.shark_id) ||
+    photo.processing_status === 'error'
+  )
   const stepLabel = (s: 1 | 2 | 3) => s < step ? 'done' : s === step ? 'active' : ''
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -238,6 +259,15 @@ export default function PhotoDetail() {
           </div>
           <div className="flex-gap8" style={{ alignItems: 'center' }}>
             <StatusBadge status={photo.processing_status} />
+            {canRecheck && (
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={rechecking}
+                onClick={handleRecheck}
+              >
+                {rechecking ? 'Rechecking…' : 'Re-run ML'}
+              </button>
+            )}
             {canEdit && (
               <button
                 className="btn btn-danger btn-sm"

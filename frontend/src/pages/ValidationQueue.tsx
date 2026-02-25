@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getSharks, getValidationQueue, suggestSharkName, validatePhoto } from '../api'
+import { getSharks, getUnlinkedPhotos, getValidationQueue, recheckPhoto, suggestSharkName, validatePhoto } from '../api'
 import { Lightbox } from '../components/Lightbox'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
+import { StatusBadge } from '../components/StatusBadge'
 import { usePageTitle } from '../hooks'
 import type { Candidate, Photo, Shark } from '../types'
 
 type SharkMap = Record<string, Shark>
+type Tab = 'queue' | 'unlinked'
 
 export default function ValidationQueue() {
   usePageTitle('Validation Queue')
+  const [tab, setTab] = useState<Tab>('queue')
+
+  // ── queue state ────────────────────────────────────────────────────────────
   const [queue, setQueue] = useState<Photo[]>([])
   const [idx, setIdx] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -31,13 +36,18 @@ export default function ValidationQueue() {
   const [sharkSearch, setSharkSearch] = useState('')
   const [pickedShark, setPickedShark] = useState<Shark | null>(null)
 
+  // ── unlinked state ─────────────────────────────────────────────────────────
+  const [unlinked, setUnlinked] = useState<Photo[]>([])
+  const [recheckingId, setRecheckingId] = useState<string | null>(null)
+
   useEffect(() => {
-    Promise.all([getValidationQueue(), getSharks()])
-      .then(([q, s]) => {
+    Promise.all([getValidationQueue(), getSharks(), getUnlinkedPhotos()])
+      .then(([q, s, u]) => {
         setQueue(q)
         setIdx(0)
         setSharks(s)
         setSharksMap(Object.fromEntries(s.map(sh => [sh.id, sh])))
+        setUnlinked(u)
       })
       .catch(() => setError('Failed to load queue'))
       .finally(() => setLoading(false))
@@ -113,11 +123,24 @@ export default function ValidationQueue() {
     s.display_name.toLowerCase().includes(sharkSearch.toLowerCase()),
   )
 
+  const handleRecheck = async (photoId: string) => {
+    setRecheckingId(photoId)
+    try {
+      await recheckPhoto(photoId)
+      setUnlinked(prev => prev.filter(p => p.id !== photoId))
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Recheck failed')
+    } finally {
+      setRecheckingId(null)
+    }
+  }
+
   const handleKey = useCallback((e: KeyboardEvent) => {
+    if (tab !== 'queue') return
     if (showNewShark || showPicker || lightboxUrl) return
     if (e.key === 'ArrowLeft')  setIdx(i => Math.max(i - 1, 0))
     if (e.key === 'ArrowRight') setIdx(i => Math.min(i + 1, total - 1))
-  }, [showNewShark, showPicker, lightboxUrl, total])
+  }, [tab, showNewShark, showPicker, lightboxUrl, total])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKey)
@@ -142,40 +165,104 @@ export default function ValidationQueue() {
           <div>
             <h1 className="page-title">Validation Queue</h1>
             <div className="page-subtitle">
-              {total} photo{total !== 1 ? 's' : ''} awaiting identification
+              {tab === 'queue'
+                ? `${total} photo${total !== 1 ? 's' : ''} awaiting identification`
+                : `${unlinked.length} unlinked photo${unlinked.length !== 1 ? 's' : ''}`}
             </div>
           </div>
-          {total > 1 && (
-            <div className="flex-gap8">
+          <div className="flex-gap8" style={{ alignItems: 'center' }}>
+            {/* Tab switcher */}
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
               <button
-                className="btn btn-outline btn-sm"
-                onClick={() => setIdx(i => Math.max(i - 1, 0))}
-                disabled={idx === 0}
+                className={`btn btn-sm${tab === 'queue' ? ' btn-primary' : ' btn-ghost'}`}
+                style={{ borderRadius: 0, border: 'none' }}
+                onClick={() => setTab('queue')}
               >
-                ← Prev
+                Pending{total > 0 && <span className="badge" style={{ marginLeft: 6 }}>{total}</span>}
               </button>
-              <span className="muted">
-                {idx + 1} / {total}
-              </span>
               <button
-                className="btn btn-outline btn-sm"
-                onClick={() => setIdx(i => Math.min(i + 1, total - 1))}
-                disabled={idx === total - 1}
+                className={`btn btn-sm${tab === 'unlinked' ? ' btn-primary' : ' btn-ghost'}`}
+                style={{ borderRadius: 0, border: 'none', borderLeft: '1px solid var(--border)' }}
+                onClick={() => setTab('unlinked')}
               >
-                Next →
+                Unlinked{unlinked.length > 0 && <span className="badge" style={{ marginLeft: 6 }}>{unlinked.length}</span>}
               </button>
             </div>
-          )}
+            {/* Prev/Next only in queue tab */}
+            {tab === 'queue' && total > 1 && (
+              <>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setIdx(i => Math.max(i - 1, 0))}
+                  disabled={idx === 0}
+                >
+                  ← Prev
+                </button>
+                <span className="muted">
+                  {idx + 1} / {total}
+                </span>
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setIdx(i => Math.min(i + 1, total - 1))}
+                  disabled={idx === total - 1}
+                >
+                  Next →
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="page-body">
-          {error && <div className="alert-error">{error}</div>}
+          {error && <div className="alert-error mb16">{error}</div>}
 
-          {!photo ? (
-            <div className="empty-state">
-              🎉 Validation queue is empty. All photos have been reviewed.
-            </div>
-          ) : (
+          {/* ── Unlinked tab ── */}
+          {tab === 'unlinked' && (
+            unlinked.length === 0 ? (
+              <div className="empty-state">No unlinked photos.</div>
+            ) : (
+              <div className="photo-grid" style={{ padding: 0 }}>
+                {unlinked.map(p => (
+                  <div key={p.id} className="photo-card">
+                    <Link to={`/photos/${p.id}`}>
+                      <div className="photo-thumb">
+                        {p.url
+                          ? <img src={p.url} alt="" />
+                          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>📷</div>}
+                      </div>
+                    </Link>
+                    <div className="photo-thumb-meta">
+                      <StatusBadge status={p.processing_status} />
+                      <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                        {p.taken_at ? new Date(p.taken_at).toLocaleDateString('en') : '—'}
+                      </div>
+                      {p.dive_session_id && (
+                        <div style={{ fontSize: 11, marginTop: 2 }}>
+                          <Link to={`/dive-sessions/${p.dive_session_id}`} className="link">Session</Link>
+                        </div>
+                      )}
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ marginTop: 6, width: '100%' }}
+                        disabled={recheckingId === p.id}
+                        onClick={() => handleRecheck(p.id)}
+                      >
+                        {recheckingId === p.id ? 'Rechecking…' : 'Re-run ML'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* ── Queue tab ── */}
+          {tab === 'queue' && (
+            !photo ? (
+              <div className="empty-state">
+                🎉 Validation queue is empty. All photos have been reviewed.
+              </div>
+            ) : (
             <div className="validation-layout">
               {/* Left: photo + metadata */}
               <div className="validation-photo-panel">
@@ -338,6 +425,7 @@ export default function ValidationQueue() {
                 </div>
               </div>
             </div>
+            )
           )}
         </div>
       </div>
