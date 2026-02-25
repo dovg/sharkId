@@ -115,6 +115,14 @@
 - ✅ All action buttons removed from DOM (not disabled) for viewer role
 - ✅ Admin-only `/users` page with inline role editor, password reset, add/delete user
 
+## ✅ Phase 6.6 — Dark Theme
+
+- ✅ FOUC-prevention inline script in `index.html` sets `data-theme` before CSS loads
+- ✅ `[data-theme="dark"]` token block in `global.css` overrides all CSS custom properties
+- ✅ Hardcoded-colour overrides for status chips, alerts, banners, dropzone, image placeholders
+- ✅ `useTheme()` hook in `hooks.ts`; persists preference in `localStorage` (`sharkid-theme`)
+- ✅ Toggle switch (☀️/🌙) in sidebar footer; defaults to OS `prefers-color-scheme`
+
 ## Phase 7 — Backup & Operations
 
 52. Write PostgreSQL backup script (pg_dump) and schedule

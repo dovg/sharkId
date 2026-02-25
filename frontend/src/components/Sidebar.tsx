@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { getValidationQueueCount, logout } from '../api'
 import { useAuth } from '../auth'
+import { useTheme } from '../hooks'
 
 export function Sidebar() {
   const { clearAuth, role } = useAuth()
   const navigate = useNavigate()
   const [queueCount, setQueueCount] = useState(0)
+  const { dark, toggle } = useTheme()
 
   useEffect(() => {
     if (role === 'viewer') return
@@ -70,6 +72,15 @@ export function Sidebar() {
         )}
       </nav>
       <div className="sidebar-footer">
+        <div className="theme-switch-wrap">
+          <span>{dark ? '🌙 Dark' : '☀️ Light'}</span>
+          <label className="theme-switch" aria-label="Toggle theme">
+            <input type="checkbox" checked={dark} onChange={toggle} />
+            <span className="theme-switch-track">
+              <span className="theme-switch-thumb" />
+            </span>
+          </label>
+        </div>
         <button
           className="nav-item"
           onClick={handleLogout}
