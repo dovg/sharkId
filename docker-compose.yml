@@ -76,7 +76,7 @@ services:
     volumes:
       - ./backend:/app      # live reload in dev
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "127.0.0.1:${BACKEND_PORT}:8000"
     depends_on:
       db:
         condition: service_healthy
