@@ -123,13 +123,13 @@
 - ✅ `useTheme()` hook in `hooks.ts`; persists preference in `localStorage` (`sharkid-theme`)
 - ✅ Toggle switch (☀️/🌙) in sidebar footer; defaults to OS `prefers-color-scheme`
 
-## Phase 7 — Backup & Operations
+## ✅ Phase 7 — Backup & Operations
 
-52. Write PostgreSQL backup script (pg_dump) and schedule
-53. Write MinIO snapshot/sync script and schedule
-54. Document restore procedure
-55. Healthcheck endpoints — ✅ `GET /health` on ML service; backend `/docs` available
-56. Docker restart policies — ✅ `restart: unless-stopped` on key services
+52. ✅ Write PostgreSQL backup script (`scripts/backup-db.sh` — pg_dump → gzip)
+53. ✅ Write MinIO snapshot/sync script (`scripts/backup-minio.sh` — mc mirror via Docker)
+54. ✅ Document restore procedure (`docs/RESTORE.md`)
+55. ✅ Healthcheck endpoints — `GET /health` on ML service; backend `/health` implemented
+56. ✅ Docker restart policies — `restart: unless-stopped` on all services
 
 ## Phase 8 — Testing & Hardening
 
