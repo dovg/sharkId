@@ -3,11 +3,13 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from app.config import settings
 
+_is_sqlite = settings.database_url.startswith("sqlite")
+_pool_kwargs = {} if _is_sqlite else {"pool_size": 10, "max_overflow": 20}
+
 engine = create_engine(
     settings.database_url,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    **_pool_kwargs,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

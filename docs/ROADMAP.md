@@ -131,14 +131,32 @@
 55. ✅ Healthcheck endpoints — `GET /health` on ML service; backend `/health` implemented
 56. ✅ Docker restart policies — `restart: unless-stopped` on all services
 
-## Phase 8 — Testing & Hardening
+## ✅ Phase 8 — Testing & Hardening
 
-57. Backend: unit tests for auth, entity CRUD, validation logic
-58. Backend: integration tests for photo upload → classification → validation flow
-59. ML service: test classification pipeline with sample shark photos
-60. Frontend: manual end-to-end walkthrough of all use cases (UC-01 to UC-13)
-61. Verify acceptance criteria from `docs/03_user_stories_acceptance.md`
-62. Load realistic dataset, tune global confidence threshold
+57. ✅ Backend: unit tests for auth, entity CRUD, validation logic (`backend/tests/`)
+58. ✅ Backend: integration tests for photo upload → classification → validation flow (`backend/tests/test_photos.py`)
+59. ✅ ML service: test classification pipeline — embedder, store, classifier, detector, API (`ml/tests/`)
+60. ⬜ Frontend: manual end-to-end walkthrough of all use cases (UC-01 to UC-13) — **manual step**
+61. ⬜ Verify acceptance criteria from `docs/03_user_stories_acceptance.md` — **manual step**
+62. ⬜ Load realistic dataset, tune global confidence threshold — **manual step**
+
+### Running automated tests
+
+```bash
+# Backend (from project root, no Docker needed)
+pip install -r backend/requirements-test.txt
+cd backend && pytest --tb=short -q
+
+# With coverage
+cd backend && pytest --cov=app --cov-report=term-missing
+
+# ML service
+pip install -r ml/requirements-test.txt -r ml/requirements.txt
+cd ml && pytest --tb=short -q
+
+# With coverage
+cd ml && pytest --cov=. --cov-report=term-missing
+```
 
 ## Phase 9 — Production Deployment
 
