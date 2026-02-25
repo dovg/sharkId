@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteVideo, getDiveSession, getSessionVideos, uploadPhoto, uploadVideo } from '../api'
+import { deleteVideo, getDiveSession, getLocations, getSessionVideos, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
-import type { DiveSessionDetail as DSDetail, Photo, Video } from '../types'
+import type { DiveSessionDetail as DSDetail, Location, Photo, Video } from '../types'
 
 export default function DiveSessionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -13,6 +13,10 @@ export default function DiveSessionDetail() {
   const [uploading, setUploading] = useState(false)
   const [videos, setVideos] = useState<Video[]>([])
   const [videoUploading, setVideoUploading] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ started_at: '', ended_at: '', location_id: '', comment: '' })
+  const [saving, setSaving] = useState(false)
+  const [locations, setLocations] = useState<Location[]>([])
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
@@ -20,10 +24,19 @@ export default function DiveSessionDetail() {
   useEffect(() => {
     if (!id) return
     getDiveSession(id)
-      .then(setSession)
+      .then(s => {
+        setSession(s)
+        setEditForm({
+          started_at: s.started_at ? s.started_at.slice(0, 16) : '',
+          ended_at:   s.ended_at   ? s.ended_at.slice(0, 16)   : '',
+          location_id: s.location_id ?? '',
+          comment:     s.comment ?? '',
+        })
+      })
       .catch(() => setError('Failed to load session'))
       .finally(() => setLoading(false))
     getSessionVideos(id).then(setVideos).catch(() => {})
+    getLocations().then(setLocations).catch(() => {})
   }, [id])
 
   // Poll video status while any video is still processing
@@ -48,6 +61,26 @@ export default function DiveSessionDetail() {
     }, 3000)
     return () => clearInterval(timer)
   }, [id, videos])
+
+  const handleSave = async () => {
+    if (!id) return
+    setSaving(true)
+    setError('')
+    try {
+      const updated = await updateDiveSession(id, {
+        started_at: editForm.started_at || undefined,
+        ended_at:   editForm.ended_at   || undefined,
+        location_id: editForm.location_id || undefined,
+        comment:    editForm.comment    || undefined,
+      })
+      setSession(s => s ? { ...s, ...updated } : s)
+      setEditing(false)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || !id) return
@@ -135,6 +168,9 @@ export default function DiveSessionDetail() {
             </div>
             <h1 className="page-title">Dive Session</h1>
           </div>
+          <button className="btn btn-outline btn-sm" onClick={() => setEditing(e => !e)}>
+            {editing ? 'Cancel' : 'Edit'}
+          </button>
         </div>
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}
@@ -171,6 +207,59 @@ export default function DiveSessionDetail() {
               )}
             </div>
           </div>
+
+          {/* Edit form */}
+          {editing && (
+            <div className="card mb16">
+              <div className="card-title">Edit Session</div>
+              <div className="card-body">
+                <div className="form-group">
+                  <label className="form-label">Start date &amp; time</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.started_at}
+                    onChange={e => setEditForm(f => ({ ...f, started_at: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">End date &amp; time</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.ended_at}
+                    onChange={e => setEditForm(f => ({ ...f, ended_at: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Location</label>
+                  <select
+                    value={editForm.location_id}
+                    onChange={e => setEditForm(f => ({ ...f, location_id: e.target.value }))}
+                  >
+                    <option value="">— none —</option>
+                    {locations.map(l => (
+                      <option key={l.id} value={l.id}>{l.country} · {l.spot_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Comment</label>
+                  <textarea
+                    rows={3}
+                    value={editForm.comment}
+                    onChange={e => setEditForm(f => ({ ...f, comment: e.target.value }))}
+                  />
+                </div>
+                <div className="flex-gap8">
+                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSave}>
+                    {saving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                  <button className="btn btn-outline btn-sm" onClick={() => setEditing(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Upload */}
           <div className="card mb16">
