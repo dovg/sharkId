@@ -21,7 +21,7 @@ services:
 
   # ── MinIO ───────────────────────────────────────────
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -40,7 +40,7 @@ services:
 
   # ── MinIO bucket init (runs once, exits) ────────────
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     depends_on:
       minio:
         condition: service_healthy
@@ -128,7 +128,7 @@ services:
   # ── nginx (single entry point on port 80) ───────────
   nginx:
     restart: unless-stopped
-    image: nginx:alpine
+    image: nginx:stable-alpine
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
