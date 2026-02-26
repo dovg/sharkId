@@ -193,3 +193,6 @@ export const updateUser = (id: string, data: Partial<{ email: string; password: 
   req<UserRecord>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) })
 export const deleteUser = (id: string) =>
   req<void>(`/users/${id}`, { method: 'DELETE' })
+
+export const rebuildEmbeddings = () =>
+  req<{ status: string }>('/photos/rebuild-embeddings', { method: 'POST' })

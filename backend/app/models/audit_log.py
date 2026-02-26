@@ -40,6 +40,7 @@ class A:
     PHOTO_VALIDATE = "photo.validate"
     PHOTO_DELETE = "photo.delete"
     PHOTO_RECHECK = "photo.recheck"
+    PHOTO_REBUILD_EMBEDDINGS = "photo.rebuild_embeddings"
     VIDEO_UPLOAD = "video.upload"
     VIDEO_DELETE = "video.delete"
     SHARK_CREATE = "shark.create"

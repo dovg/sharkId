@@ -10,7 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user, require_editor
+from app.auth.dependencies import get_current_user, require_admin, require_editor
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models.audit_log import A
@@ -365,6 +365,79 @@ def recheck_photo(
 
     background_tasks.add_task(_classify_photo, photo.id)
     return enrich_photo(photo)
+
+
+# ── rebuild embeddings ────────────────────────────────────────────────────────
+
+def _rebuild_embeddings_task() -> None:
+    """Reset the ML embedding store, then re-store embeddings for every validated
+    photo that has a linked shark and user-confirmed bboxes."""
+    db = SessionLocal()
+    try:
+        with httpx.Client(timeout=30.0) as http:
+            http.post(f"{settings.ml_service_url}/reset-embeddings")
+
+            photos = (
+                db.query(Photo)
+                .filter(
+                    Photo.processing_status == ProcessingStatus.validated,
+                    Photo.shark_id.isnot(None),
+                )
+                .all()
+            )
+            for photo in photos:
+                try:
+                    shark = db.get(Shark, photo.shark_id)
+                    if not shark:
+                        continue
+                    image_data = get_object_bytes(photo.object_key)
+                    ml_params: dict = {
+                        "shark_id": str(photo.shark_id),
+                        "display_name": shark.display_name,
+                        "photo_id": str(photo.id),
+                    }
+                    if photo.shark_bbox and photo.zone_bbox:
+                        sb, zb = photo.shark_bbox, photo.zone_bbox
+                        ml_params.update({
+                            "shark_x": sb["x"], "shark_y": sb["y"],
+                            "shark_w": sb["w"], "shark_h": sb["h"],
+                            "zone_x":  zb["x"], "zone_y":  zb["y"],
+                            "zone_w":  zb["w"], "zone_h":  zb["h"],
+                        })
+                    if photo.orientation:
+                        ml_params["orientation"] = photo.orientation
+                    http.post(
+                        f"{settings.ml_service_url}/embeddings",
+                        content=image_data,
+                        headers={"Content-Type": photo.content_type},
+                        params=ml_params,
+                    )
+                except Exception:
+                    logger.exception("rebuild: failed to store embedding for photo %s", photo.id)
+    except Exception:
+        logger.exception("rebuild embeddings task failed")
+    finally:
+        db.close()
+
+
+@router.post("/photos/rebuild-embeddings", status_code=status.HTTP_202_ACCEPTED)
+def rebuild_embeddings(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Reset the ML embedding store and rebuild it from all validated linked photos.
+
+    Runs in the background; returns immediately with 202.
+    """
+    log_event(
+        db, current_user, A.PHOTO_REBUILD_EMBEDDINGS,
+        resource_type="photo", resource_id=None, request=request,
+    )
+    db.commit()
+    background_tasks.add_task(_rebuild_embeddings_task)
+    return {"status": "rebuilding"}
 
 
 # ── delete ────────────────────────────────────────────────────────────────────

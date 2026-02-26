@@ -21,6 +21,13 @@ def health():
     return {"status": "ok", "service": "ml", "embeddings": get_store().count()}
 
 
+@app.post("/reset-embeddings")
+def reset_embeddings():
+    """Clear the embedding store. The next classify calls will rebuild it from scratch."""
+    get_store().reset()
+    return {"status": "reset"}
+
+
 @app.post("/process-video")
 async def process_video(request: Request):
     """Accept raw video bytes; extract frames containing a shark and return them.

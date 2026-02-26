@@ -1,6 +1,0 @@
-# Dependencies for one-time ONNX model export (requires Python 3.13, not 3.14+)
-# Used only in Dockerfile and for manual export_model.py runs.
-# Install via: pip install -r requirements-export.txt --index-url https://download.pytorch.org/whl/cpu
-torch>=2.0
-torchvision>=0.15
-timm>=1.0.0

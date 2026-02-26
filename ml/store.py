@@ -111,6 +111,16 @@ class EmbeddingStore:
         with self._lock:
             return len(self._meta)
 
+    def reset(self) -> None:
+        """Clear all embeddings from memory and delete the backing files."""
+        with self._lock:
+            self._meta = []
+            self._vectors = np.empty((0, EMBEDDING_DIM), dtype=np.float32)
+            if _JSON_PATH.exists():
+                _JSON_PATH.unlink()
+            if _NPY_PATH.exists():
+                _NPY_PATH.unlink()
+
 
 # Module-level singleton — instantiated once when the module is imported.
 _store: Optional[EmbeddingStore] = None
