@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createUser, deleteUser, getUsers, rebuildEmbeddings, updateUser } from '../api'
+import { createUser, deleteUser, getUsers, updateUser } from '../api'
 import { Modal } from '../components/Modal'
 import { Sidebar } from '../components/Sidebar'
 import { useAuth } from '../auth'
@@ -20,8 +20,6 @@ export default function Users() {
   const [resetPassword, setResetPassword] = useState('')
   const [resetError, setResetError] = useState('')
   const [resetting, setResetting] = useState(false)
-  const [rebuilding, setRebuilding] = useState(false)
-  const [rebuildMsg, setRebuildMsg] = useState('')
 
   useEffect(() => {
     getUsers()
@@ -82,19 +80,6 @@ export default function Users() {
     }
   }
 
-  const handleRebuildEmbeddings = async () => {
-    setRebuilding(true)
-    setRebuildMsg('')
-    try {
-      await rebuildEmbeddings()
-      setRebuildMsg('Rebuild started — running in background.')
-    } catch (err: unknown) {
-      setRebuildMsg(err instanceof Error ? err.message : 'Rebuild failed')
-    } finally {
-      setRebuilding(false)
-    }
-  }
-
   const resetUser = resetUserId ? users.find(u => u.id === resetUserId) : null
 
   return (
@@ -113,30 +98,6 @@ export default function Users() {
 
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}
-
-          <div className="card" style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>ML Embeddings</div>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  Rebuilds the recognition model from all validated linked photos.
-                  Use after bulk re-annotation or when recognition quality degrades.
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {rebuildMsg && (
-                  <span className="muted" style={{ fontSize: 13 }}>{rebuildMsg}</span>
-                )}
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={rebuilding}
-                  onClick={handleRebuildEmbeddings}
-                >
-                  {rebuilding ? 'Rebuilding…' : 'Rebuild Embeddings'}
-                </button>
-              </div>
-            </div>
-          </div>
 
           {loading ? (
             <div className="muted">Loading…</div>

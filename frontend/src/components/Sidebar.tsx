@@ -62,6 +62,14 @@ export function Sidebar() {
             Audit Log
           </NavLink>
         )}
+        {role !== 'viewer' && (
+          <NavLink
+            to="/ml-model"
+            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+          >
+            ML Model
+          </NavLink>
+        )}
         {role === 'admin' && (
           <NavLink
             to="/users"

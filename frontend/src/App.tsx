@@ -2,6 +2,7 @@ import { type ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import AuditLog from './pages/AuditLog'
+import MLModel from './pages/MLModel'
 import DiveSessionDetail from './pages/DiveSessionDetail'
 import DiveSessions from './pages/DiveSessions'
 import Locations from './pages/Locations'
@@ -23,6 +24,14 @@ function AdminGuard({ children }: { children: ReactElement }) {
   const location = useLocation()
   if (!isAuthenticated) return <Navigate to="/login" replace />
   if (role !== 'admin') return <Navigate to="/dive-sessions" replace state={{ from: location }} />
+  return children
+}
+
+function EditorGuard({ children }: { children: ReactElement }) {
+  const { isAuthenticated, role } = useAuth()
+  const location = useLocation()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (role === 'viewer') return <Navigate to="/dive-sessions" replace state={{ from: location }} />
   return children
 }
 
@@ -55,6 +64,7 @@ export default function App() {
           <Route path="/locations" element={<Guard><Locations /></Guard>} />
           <Route path="/audit-log" element={<Guard><AuditLog /></Guard>} />
           <Route path="/users" element={<AdminGuard><Users /></AdminGuard>} />
+          <Route path="/ml-model" element={<EditorGuard><MLModel /></EditorGuard>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
