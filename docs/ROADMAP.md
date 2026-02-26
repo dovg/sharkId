@@ -169,6 +169,16 @@
 - ✅ `GET /photos/ml-stats` (backend) — eligible photos, total sharks, last rebuild from audit log, proxied ML stats
 - ✅ `GET /stats` (ML service) — embedding count, indexed sharks, embedding dimension
 
+## ✅ Phase 8.2 — Excel Export
+
+- ✅ `GET /sharks/export` — full shark catalog: name, status, first/last seen, observation count, main photo link
+- ✅ `GET /sharks/{id}/export` — single shark observations: date, location, session, comment, confirmed, photo link, GPS lat/lon
+- ✅ `GET /dive-sessions/export` — all sessions: started, ended, location, comment, photo count, queue count, shark count
+- ✅ `GET /dive-sessions/{id}/export` — single session photos: photo link, status, shark, taken at, GPS lat/lon, orientation, observation status
+- ✅ All endpoints require editor+ role; photo URLs as clickable Excel hyperlinks; bold navy header row, frozen first row, auto-fit columns
+- ✅ `openpyxl>=3.1` added to backend requirements
+- ✅ "Export Excel" button on Shark Catalog, Shark Detail, Dive Sessions, Session Detail pages (editor+ only)
+
 ### Running automated tests
 
 ```bash
