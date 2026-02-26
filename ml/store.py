@@ -6,13 +6,17 @@ Each entry is a dict with keys:
   display_name: str
   photo_id    : str
   orientation : str
-  embedding   : np.ndarray  (106-dim float32, L2-normalised)
+  embedding   : np.ndarray  (EMBEDDING_DIM-dim float32, L2-normalised)
 
 The store is loaded from disk on first access and persisted after every write.
 The data directory is controlled by the EMBEDDINGS_PATH env var
 (default: /app/data/embeddings).  Two files are written:
   <path>.json  — metadata list (shark_id, display_name, photo_id, orientation)
-  <path>.npy   — numpy array of shape (N, 106)
+  <path>.npy   — numpy array of shape (N, EMBEDDING_DIM)
+
+If the on-disk .npy has a different embedding dimension than the current
+EMBEDDING_DIM (e.g. after upgrading from the hand-crafted 106-dim embedder),
+the store resets to empty rather than loading stale incompatible vectors.
 """
 
 import json
@@ -23,6 +27,8 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
+from embedder import EMBEDDING_DIM
+
 _BASE_PATH = Path(os.getenv("EMBEDDINGS_PATH", "/app/data/embeddings"))
 _JSON_PATH = _BASE_PATH.with_suffix(".json")
 _NPY_PATH = _BASE_PATH.with_suffix(".npy")
@@ -32,7 +38,7 @@ class EmbeddingStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._meta: List[Dict] = []        # metadata without embeddings
-        self._vectors: np.ndarray = np.empty((0, 106), dtype=np.float32)
+        self._vectors: np.ndarray = np.empty((0, EMBEDDING_DIM), dtype=np.float32)
         self._load()
 
     # ── persistence ──────────────────────────────────────────────────────────
@@ -42,13 +48,19 @@ class EmbeddingStore:
             try:
                 with open(_JSON_PATH) as fh:
                     self._meta = json.load(fh)
-                self._vectors = np.load(str(_NPY_PATH))
-                if len(self._meta) != len(self._vectors):
+                vectors = np.load(str(_NPY_PATH))
+                # Reject stale files whose embedding dimension no longer matches
+                # (e.g. upgrading from the old 106-dim hand-crafted embedder)
+                if len(self._meta) != len(vectors) or (
+                    len(vectors) > 0 and vectors.shape[1] != EMBEDDING_DIM
+                ):
                     self._meta = []
-                    self._vectors = np.empty((0, 106), dtype=np.float32)
+                    self._vectors = np.empty((0, EMBEDDING_DIM), dtype=np.float32)
+                    return
+                self._vectors = vectors
             except Exception:
                 self._meta = []
-                self._vectors = np.empty((0, 106), dtype=np.float32)
+                self._vectors = np.empty((0, EMBEDDING_DIM), dtype=np.float32)
 
     def _save(self) -> None:
         _BASE_PATH.parent.mkdir(parents=True, exist_ok=True)

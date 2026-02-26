@@ -8,12 +8,13 @@ import threading
 import numpy as np
 import pytest
 
+from embedder import EMBEDDING_DIM
 from store import EmbeddingStore
 
 
 def _unit_vec(seed: int = 0) -> np.ndarray:
     rng = np.random.default_rng(seed)
-    v = rng.random(106).astype(np.float32)
+    v = rng.random(EMBEDDING_DIM).astype(np.float32)
     return v / np.linalg.norm(v)
 
 

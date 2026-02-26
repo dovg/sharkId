@@ -120,9 +120,10 @@ def test_store_embedding(ml_client, jpeg_bytes):
     )
     assert resp.status_code == 200
     data = resp.json()
+    from embedder import EMBEDDING_DIM
     assert data["status"] == "stored"
     assert data["shark_id"] == "shark-1"
-    assert data["embedding_dim"] == 106
+    assert data["embedding_dim"] == EMBEDDING_DIM
 
 
 def test_store_embedding_increments_health_count(ml_client, jpeg_bytes):

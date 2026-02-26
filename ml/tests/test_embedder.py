@@ -1,7 +1,9 @@
 """
 Item 59 — embedder unit tests.
 
-Verifies the 106-dim L2-normalised feature vector extracted from a snout crop.
+Verifies the EMBEDDING_DIM L2-normalised feature vector extracted from a zone
+crop.  The CNN model is replaced by a deterministic stub (see conftest.py) so
+tests run without downloading pretrained weights.
 """
 import numpy as np
 import pytest

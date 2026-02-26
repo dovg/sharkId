@@ -1,67 +1,77 @@
 """
-Feature embedding for a snout-region crop.
+Feature embedding for a snout-region crop using EfficientNet-B0.
 
-Produces a 106-dimensional L2-normalised vector:
-  - 64-dim  3D HSV histogram  (4 × 4 × 4 bins over H, S, V)
-  - 10-dim  LBP histogram     (uniform LBP, P=8, R=1, binned into 10 buckets)
-  - 32-dim  spatial grid      (4×4 cells, mean + std of grayscale per cell)
+Produces a 1280-dimensional L2-normalised vector from the global average
+pooling layer of EfficientNet-B0 pretrained on ImageNet, via ONNX Runtime.
 
-All components are concatenated and L2-normalised so cosine similarity
-equals dot-product, which makes KNN fast and intuitive.
+Why CNN over hand-crafted features:
+- HSV histograms + LBP match sharks by overall colour and coarse texture,
+  which is similar across all tiger sharks.
+- EfficientNet-B0 has learned hierarchical visual features that capture
+  fine-grained patterns (spots, markings, skin texture) in a
+  viewpoint-tolerant way, dramatically improving per-individual discrimination.
+
+The ONNX model is loaded lazily on first call.  Its path is controlled by
+the MODEL_PATH env var (default: /opt/shark_model/efficientnet_b0.onnx).
+Generate the model once with:  python export_model.py
 """
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from skimage.color import rgb2hsv
-from skimage.feature import local_binary_pattern
 
-EMBEDDING_DIM = 106
+EMBEDDING_DIM = 1280  # EfficientNet-B0 global-average-pool output
 
-# LBP parameters
-_LBP_P = 8
-_LBP_R = 1
+_INPUT_SIZE = 224
+_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
-# Spatial grid
-_GRID_N = 4   # split each axis into 4 → 16 cells → 16×2 = 32 values
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "/opt/shark_model/efficientnet_b0.onnx"))
+
+_session = None
+
+
+def _get_session():
+    """Load ONNX Runtime inference session on first call; cache afterwards."""
+    global _session
+    if _session is None:
+        if not MODEL_PATH.exists():
+            raise FileNotFoundError(
+                f"EfficientNet-B0 ONNX model not found at {MODEL_PATH}.\n"
+                "Generate it once with:  python export_model.py\n"
+                "Or set MODEL_PATH to an existing .onnx file."
+            )
+        import onnxruntime as ort  # deferred so tests can mock before import
+        _session = ort.InferenceSession(
+            str(MODEL_PATH),
+            providers=["CPUExecutionProvider"],
+        )
+    return _session
+
+
+def _preprocess(img: Image.Image) -> np.ndarray:
+    """Resize, normalise, and convert to (1, 3, H, W) float32 array."""
+    img = img.convert("RGB").resize((_INPUT_SIZE, _INPUT_SIZE), Image.BILINEAR)
+    arr = np.array(img, dtype=np.float32) / 255.0   # (H, W, 3) in [0, 1]
+    arr = (arr - _MEAN) / _STD                       # ImageNet normalisation
+    arr = arr.transpose(2, 0, 1)[np.newaxis]         # (1, 3, H, W)
+    return arr
 
 
 def extract_embedding(img: Image.Image) -> np.ndarray:
-    """Return a 106-dim float32 L2-normalised embedding for *img*.
+    """Return a 1280-dim float32 L2-normalised embedding for *img*.
 
-    *img* should already be the snout crop (128×128) produced by detect_snout.
+    *img* should already be the zone crop produced by crop_zone / detect_snout.
     """
-    img = img.convert("RGB")
-    arr = np.array(img, dtype=np.float32) / 255.0   # [0, 1], shape (H, W, 3)
-
-    # ── 1. HSV histogram (64 dims) ───────────────────────────────────────────
-    hsv = rgb2hsv(arr)   # shape (H, W, 3), all channels in [0, 1]
-    hsv_hist, _ = np.histogramdd(
-        hsv.reshape(-1, 3),
-        bins=(4, 4, 4),
-        range=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
-    )
-    hsv_feat = hsv_hist.flatten().astype(np.float32)   # 64-dim
-
-    # ── 2. LBP histogram (10 dims) ───────────────────────────────────────────
-    # Convert to grayscale in [0, 255] range as required by skimage LBP
-    gray = (np.dot(arr, [0.299, 0.587, 0.114]) * 255.0).astype(np.uint8)
-    lbp = local_binary_pattern(gray, P=_LBP_P, R=_LBP_R, method="uniform")
-    lbp_max = _LBP_P * (_LBP_P - 1) + 2   # max uniform LBP value for P=8 → 58
-    lbp_hist, _ = np.histogram(lbp.ravel(), bins=10, range=(0.0, lbp_max + 1))
-    lbp_feat = lbp_hist.astype(np.float32)   # 10-dim
-
-    # ── 3. Spatial grid (32 dims) ────────────────────────────────────────────
-    gray_f = gray.astype(np.float32)
-    rows = np.array_split(gray_f, _GRID_N, axis=0)
-    grid_vals: list[float] = []
-    for row_strip in rows:
-        for cell in np.array_split(row_strip, _GRID_N, axis=1):
-            grid_vals.append(float(cell.mean()))
-            grid_vals.append(float(cell.std()))
-    grid_feat = np.array(grid_vals, dtype=np.float32)   # 32-dim
-
-    # ── Concatenate and L2-normalise ─────────────────────────────────────────
-    feat = np.concatenate([hsv_feat, lbp_feat, grid_feat])   # 106-dim
+    session = _get_session()
+    inp = _preprocess(img)
+    input_name = session.get_inputs()[0].name
+    output = session.run(None, {input_name: inp})[0]   # (1, 1280)
+    feat = output[0].astype(np.float32)
     norm = np.linalg.norm(feat)
     if norm > 0.0:
         feat /= norm

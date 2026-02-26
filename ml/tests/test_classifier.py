@@ -8,12 +8,13 @@ import numpy as np
 import pytest
 
 from classifier import find_candidates
+from embedder import EMBEDDING_DIM
 from store import EmbeddingStore
 
 
 def _unit_vec(seed: int = 0) -> np.ndarray:
     rng = np.random.default_rng(seed)
-    v = rng.random(106).astype(np.float32)
+    v = rng.random(EMBEDDING_DIM).astype(np.float32)
     return v / np.linalg.norm(v)
 
 
@@ -108,3 +109,15 @@ def test_orientation_filter(tmp_store):
 
     results = find_candidates(_unit_vec(99), tmp_store, threshold=0.0, orientation="face_left")
     assert all(r["shark_id"] == "left-shark" for r in results)
+
+
+def test_orientation_filter_fallback(tmp_store):
+    """When no stored embeddings match the requested orientation, fall back to
+    all entries rather than returning an empty list.  This ensures a shark
+    only photographed from one side is still surfaced as a candidate.
+    """
+    tmp_store.upsert("unoriented", "No Tag", _unit_vec(1), "p1", orientation="")
+
+    results = find_candidates(_unit_vec(99), tmp_store, threshold=0.0, orientation="face_left")
+    assert len(results) == 1
+    assert results[0]["shark_id"] == "unoriented"

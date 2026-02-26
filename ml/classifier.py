@@ -38,11 +38,13 @@ def find_candidates(
     if not entries:
         return []
 
-    # Filter by orientation when specified
+    # Filter by orientation when specified.
+    # Falls back to all entries when no stored embeddings carry a matching
+    # orientation tag (e.g. legacy data, or shark only seen from one side).
     if orientation:
-        entries = [e for e in entries if e.get("orientation", "") == orientation]
-    if not entries:
-        return []
+        oriented = [e for e in entries if e.get("orientation", "") == orientation]
+        if oriented:
+            entries = oriented
 
     matrix = np.array([e["embedding"] for e in entries], dtype=np.float32)
     # Fetch more than TOP_K so we can deduplicate per shark and still return 5
