@@ -196,3 +196,15 @@ export const deleteUser = (id: string) =>
 
 export const rebuildEmbeddings = () =>
   req<{ status: string }>('/photos/rebuild-embeddings', { method: 'POST' })
+
+export const getMlStats = () =>
+  req<{
+    eligible_photos: number
+    total_sharks: number
+    last_rebuilt_at: string | null
+    last_rebuilt_by: string | null
+    ml_online: boolean
+    embedding_count?: number
+    indexed_sharks?: number
+    embedding_dim?: number
+  }>('/photos/ml-stats')

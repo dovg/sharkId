@@ -8,7 +8,7 @@ from PIL import Image
 from classifier import find_candidates
 from detector import auto_detect, crop_zone, detect_snout
 from video import extract_shark_frames
-from embedder import extract_embedding
+from embedder import EMBEDDING_DIM, extract_embedding
 from store import get_store
 
 ML_CONFIDENCE_THRESHOLD = float(os.getenv("ML_CONFIDENCE_THRESHOLD", "0.5"))
@@ -19,6 +19,20 @@ app = FastAPI(title="SharkID ML Service", version="0.1.0")
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ml", "embeddings": get_store().count()}
+
+
+@app.get("/stats")
+def ml_stats():
+    """Return embedding store statistics."""
+    store = get_store()
+    with store._lock:
+        shark_ids = {e["shark_id"] for e in store._meta}
+        count = len(store._meta)
+    return {
+        "embedding_count": count,
+        "indexed_sharks": len(shark_ids),
+        "embedding_dim": EMBEDDING_DIM,
+    }
 
 
 @app.post("/reset-embeddings")

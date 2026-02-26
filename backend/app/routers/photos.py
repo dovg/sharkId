@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user, require_admin, require_editor
 from app.config import settings
 from app.database import SessionLocal, get_db
-from app.models.audit_log import A
+from app.models.audit_log import A, AuditLog
 from app.models.dive_session import DiveSession
 from app.models.observation import Observation
 from app.models.photo import Photo, ProcessingStatus
@@ -200,6 +200,48 @@ async def upload_photo(
 
 
 # ── validation queue — must be registered BEFORE /{photo_id} ─────────────────
+
+@router.get("/photos/ml-stats")
+def ml_stats(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_editor),
+):
+    """Return ML model statistics: embedding coverage, last rebuild, DB totals."""
+    eligible_photos = (
+        db.query(Photo)
+        .filter(
+            Photo.processing_status == ProcessingStatus.validated,
+            Photo.shark_id.isnot(None),
+        )
+        .count()
+    )
+    total_sharks = db.query(Shark).count()
+
+    last_rebuild = (
+        db.query(AuditLog)
+        .filter(AuditLog.action == A.PHOTO_REBUILD_EMBEDDINGS)
+        .order_by(AuditLog.created_at.desc())
+        .first()
+    )
+
+    # Proxy ML service stats (non-fatal if unavailable)
+    ml: dict = {}
+    try:
+        with httpx.Client(timeout=5.0) as http:
+            resp = http.get(f"{settings.ml_service_url}/stats")
+            ml = resp.json()
+    except Exception:
+        pass
+
+    return {
+        "eligible_photos": eligible_photos,
+        "total_sharks": total_sharks,
+        "last_rebuilt_at": last_rebuild.created_at.isoformat() if last_rebuild else None,
+        "last_rebuilt_by": last_rebuild.user_email if last_rebuild else None,
+        "ml_online": bool(ml),
+        **ml,
+    }
+
 
 @router.get("/photos/unlinked", response_model=List[PhotoOut])
 def unlinked_photos(
