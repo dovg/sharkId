@@ -20,6 +20,31 @@ function getToken(): string | null {
   return localStorage.getItem('token')
 }
 
+async function download(path: string, filename: string): Promise<void> {
+  const token = getToken()
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  const resp = await fetch(`${API_URL}${path}`, { headers })
+  if (resp.status === 401) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    localStorage.removeItem('email')
+    window.location.href = '/login'
+    return
+  }
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }))
+    const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
+    throw new Error(msg)
+  }
+  const blob = await resp.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
   const isFormData = init.body instanceof FormData
@@ -196,6 +221,14 @@ export const deleteUser = (id: string) =>
 
 export const rebuildEmbeddings = () =>
   req<{ status: string }>('/photos/rebuild-embeddings', { method: 'POST' })
+
+// ── Excel exports ──────────────────────────────────────────────────────────────
+export const exportSharks = () => download('/sharks/export', 'sharks.xlsx')
+export const exportShark = (id: string, name: string) =>
+  download(`/sharks/${id}/export`, `shark_${name.replace(/\s+/g, '_')}.xlsx`)
+export const exportSessions = () => download('/dive-sessions/export', 'dive_sessions.xlsx')
+export const exportSession = (id: string, date: string) =>
+  download(`/dive-sessions/${id}/export`, `session_${date}.xlsx`)
 
 export const getMlStats = () =>
   req<{

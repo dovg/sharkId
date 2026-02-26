@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteVideo, getAuditLog, getDiveSession, getLocations, getSessionVideos, getSharks, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
+import { deleteVideo, exportSession, getAuditLog, getDiveSession, getLocations, getSessionVideos, getSharks, updateDiveSession, uploadPhoto, uploadVideo } from '../api'
 import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
@@ -193,11 +193,22 @@ export default function DiveSessionDetail() {
             </div>
             <h1 className="page-title">Dive Session</h1>
           </div>
-          {canEdit && (
-            <button className="btn btn-outline btn-sm" onClick={() => setEditing(e => !e)}>
-              {editing ? 'Cancel' : 'Edit'}
+          <div className="flex-gap8">
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => exportSession(
+                session.id,
+                new Date(session.started_at).toISOString().slice(0, 10),
+              ).catch(() => {})}
+            >
+              Export Excel
             </button>
-          )}
+            {canEdit && (
+              <button className="btn btn-outline btn-sm" onClick={() => setEditing(e => !e)}>
+                {editing ? 'Cancel' : 'Edit'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}

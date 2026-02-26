@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createDiveSession, deleteDiveSession, getDiveSessions, getLocations } from '../api'
+import { createDiveSession, deleteDiveSession, exportSessions, getDiveSessions, getLocations } from '../api'
 import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import { usePageTitle } from '../hooks'
@@ -76,9 +76,14 @@ export default function DiveSessions() {
             <div className="page-subtitle">{sessions.length} sessions recorded</div>
           </div>
           {canEdit && (
-            <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
-              + New Session
-            </button>
+            <div className="flex-gap8">
+              <button className="btn btn-outline btn-sm" onClick={() => exportSessions().catch(() => {})}>
+                Export Excel
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
+                + New Session
+              </button>
+            </div>
           )}
         </div>
         <div className="page-body">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { deleteShark, getSharks } from '../api'
+import { deleteShark, exportSharks, getSharks } from '../api'
 import { useAuth } from '../auth'
 import { Sidebar } from '../components/Sidebar'
 import { StatusBadge } from '../components/StatusBadge'
@@ -51,6 +51,11 @@ export default function Sharks() {
             <h1 className="page-title">Shark Catalog</h1>
             <div className="page-subtitle">{sharks.length} sharks recorded</div>
           </div>
+          {canEdit && (
+            <button className="btn btn-outline btn-sm" onClick={() => exportSharks().catch(() => {})}>
+              Export Excel
+            </button>
+          )}
         </div>
         <div className="page-body">
           {error && <div className="alert-error">{error}</div>}

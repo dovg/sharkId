@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteShark, getAuditLog, getShark, updateShark } from '../api'
+import { deleteShark, exportShark, getAuditLog, getShark, updateShark } from '../api'
 import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Lightbox } from '../components/Lightbox'
@@ -99,6 +99,12 @@ export default function SharkDetail() {
           </div>
           {canEdit && (
             <div className="flex-gap8">
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => exportShark(shark.id, shark.display_name).catch(() => {})}
+              >
+                Export Excel
+              </button>
               <button className="btn btn-outline" onClick={() => setShowRename(true)}>
                 Rename
               </button>
