@@ -140,15 +140,34 @@
 61. ⬜ Verify acceptance criteria from `docs/03_user_stories_acceptance.md` — **manual step**
 62. ⬜ Load realistic dataset, tune global confidence threshold — **manual step**
 
-## ✅ Phase 8.1 — Recheck & Unlinked Photos
+## ✅ Phase 8.1 — Recheck, Unlinked Photos & ML Improvements
 
+### Recheck & Unlinked Photos
 - ✅ `POST /photos/{id}/recheck` — re-triggers ML classification for unlinked (`validated`, no shark) or `error` photos; 409 for any other state; logged as `photo.recheck`
 - ✅ `GET /photos/unlinked` — returns all photos with `processing_status=validated` and `shark_id=NULL`
-- ✅ `A.PHOTO_RECHECK` audit action constant
 - ✅ PhotoDetail: "Re-run ML" button visible to editors for unlinked/error photos
 - ✅ ValidationQueue: two-tab layout — **Pending** (existing review flow) + **Unlinked** (photo grid with Re-run ML per card)
-- ✅ 3 new backend tests: recheck unlinked, recheck error, 409 for linked photo
 - ✅ ValidationQueue Unlinked tab: "Re-run ML on all (N)" button fires recheck for all unlinked photos in parallel; succeeded cards removed from grid immediately
+- ✅ 3 new backend tests: recheck unlinked, recheck error, 409 for linked photo
+
+### CNN Embedder (EfficientNet-B0)
+- ✅ Replaced hand-crafted 106-dim HSV+LBP+spatial embedder with **1280-dim EfficientNet-B0** via `onnxruntime`
+- ✅ ONNX model exported once at `docker build` time to `/opt/shark_model/efficientnet_b0.onnx`; no torch at runtime
+- ✅ Orientation filter in classifier now falls back to all entries when no orientation-matching entries exist
+- ✅ Embedding store dimension guard: rejects stale `.npy` files if shape doesn't match `EMBEDDING_DIM`
+- ✅ ML tests use pure-numpy stub — no torch dependency in test environment
+
+### Rebuild Embeddings
+- ✅ `POST /reset-embeddings` (ML service) — clears embedding store from memory and disk
+- ✅ `POST /photos/rebuild-embeddings` (backend, admin+, 202) — background task: reset ML store then re-index all validated linked photos; logged as `photo.rebuild_embeddings`
+
+### ML Model Page
+- ✅ `/ml-model` page in sidebar — visible to editors and admins (`EditorGuard`)
+- ✅ Stat cards: ML service online/offline status, embeddings in store (with dimension), unique sharks indexed, last rebuilt timestamp + by whom
+- ✅ Coverage progress bars for photos and sharks with colour coding (teal 100%, blue ≥75%, amber below)
+- ✅ Hint text when store is behind eligible photo count
+- ✅ `GET /photos/ml-stats` (backend) — eligible photos, total sharks, last rebuild from audit log, proxied ML stats
+- ✅ `GET /stats` (ML service) — embedding count, indexed sharks, embedding dimension
 
 ### Running automated tests
 
