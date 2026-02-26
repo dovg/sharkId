@@ -197,6 +197,15 @@ cd ml && pytest --tb=short -q
 cd ml && pytest --cov=. --cov-report=term-missing
 ```
 
+## ✅ Phase 8.3 — ML Recognition Accuracy
+
+- ✅ Always store embedding on validation — every validated+linked photo is indexed, not just profile photos
+- ✅ Orientation-aware zone heuristic — `crop_shark_with_auto_zone()` uses shark orientation to bias the zone crop toward the side the shark faces; used as fallback when shark_bbox known but zone_bbox absent
+- ✅ Backend `_classify_photo` passes shark_bbox to ML even when zone_bbox is absent (gains from new heuristic during normal classification flow)
+- ✅ Per-shark embedding count — "In Model" stat in SharkDetail, sourced from ML `/stats` `by_shark` map
+- ✅ Per-photo model toggle — "In Model" / "+ Add to Model" button in PhotoDetail (editor+); backed by `GET/POST/DELETE /photos/{id}/model-status|add-to-model|from-model` and ML `GET/DELETE /embeddings/status|embeddings`
+- ✅ `store.py`: added `has_photo()`, `remove_by_photo_id()`, `counts_by_shark()` methods
+
 ## Phase 9 — Production Deployment
 
 63. Choose deployment target (VPS, self-hosted server, cloud VM)
