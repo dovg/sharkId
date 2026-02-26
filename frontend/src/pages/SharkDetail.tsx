@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteShark, exportShark, getAuditLog, getShark, updateShark } from '../api'
+import { deleteShark, exportShark, getAuditLog, getMlStats, getShark, updateShark } from '../api'
 import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Lightbox } from '../components/Lightbox'
@@ -27,6 +27,7 @@ export default function SharkDetail() {
   })
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
+  const [embeddingCount, setEmbeddingCount] = useState<number | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -41,6 +42,9 @@ export default function SharkDetail() {
       .then(setEvents)
       .catch(() => {})
       .finally(() => setEventsLoading(false))
+    getMlStats()
+      .then(stats => setEmbeddingCount(stats.by_shark?.[id] ?? 0))
+      .catch(() => {})
   }, [id])
 
   const handleSetMain = async (photoId: string) => {
@@ -149,6 +153,10 @@ export default function SharkDetail() {
                   <div className="stat">
                     <span className="stat-val">{shark.all_photos.length}</span>
                     <span className="stat-lbl">Photos</span>
+                  </div>
+                  <div className="stat">
+                    <span className="stat-val">{embeddingCount ?? '—'}</span>
+                    <span className="stat-lbl">In Model</span>
                   </div>
                   <div className="stat">
                     <span className="stat-val">

@@ -165,6 +165,15 @@ export const validatePhoto = (
 export const recheckPhoto = (id: string) =>
   req<Photo>(`/photos/${id}/recheck`, { method: 'POST' })
 
+export const getPhotoModelStatus = (id: string) =>
+  req<{ photo_id: string; in_model: boolean }>(`/photos/${id}/model-status`)
+
+export const addPhotoToModel = (id: string) =>
+  req<{ status: string; shark_id: string }>(`/photos/${id}/add-to-model`, { method: 'POST' })
+
+export const removePhotoFromModel = (id: string) =>
+  req<{ photo_id: string; removed: boolean }>(`/photos/${id}/from-model`, { method: 'DELETE' })
+
 // ── Sharks ────────────────────────────────────────────────────────────────────
 export const getSharks = () => req<Shark[]>('/sharks')
 
@@ -240,4 +249,5 @@ export const getMlStats = () =>
     embedding_count?: number
     indexed_sharks?: number
     embedding_dim?: number
+    by_shark?: Record<string, number>
   }>('/photos/ml-stats')

@@ -111,6 +111,31 @@ class EmbeddingStore:
         with self._lock:
             return len(self._meta)
 
+    def has_photo(self, photo_id: str) -> bool:
+        """Return True if an embedding exists for the given photo_id."""
+        with self._lock:
+            return any(e.get("photo_id") == photo_id for e in self._meta)
+
+    def remove_by_photo_id(self, photo_id: str) -> bool:
+        """Remove embedding for photo_id. Returns True if found and removed."""
+        with self._lock:
+            for i, entry in enumerate(self._meta):
+                if entry.get("photo_id") == photo_id:
+                    self._meta.pop(i)
+                    self._vectors = np.delete(self._vectors, i, axis=0)
+                    self._save()
+                    return True
+            return False
+
+    def counts_by_shark(self) -> Dict[str, int]:
+        """Return {shark_id: embedding_count} mapping."""
+        with self._lock:
+            result: Dict[str, int] = {}
+            for entry in self._meta:
+                sid = entry["shark_id"]
+                result[sid] = result.get(sid, 0) + 1
+            return result
+
     def reset(self) -> None:
         """Clear all embeddings from memory and delete the backing files."""
         with self._lock:

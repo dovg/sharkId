@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from PIL import Image
 
 from classifier import find_candidates
-from detector import auto_detect, crop_zone, detect_snout
+from detector import auto_detect, crop_shark_with_auto_zone, crop_zone, detect_snout
 from video import extract_shark_frames
 from embedder import EMBEDDING_DIM, extract_embedding
 from store import get_store
@@ -28,11 +28,28 @@ def ml_stats():
     with store._lock:
         shark_ids = {e["shark_id"] for e in store._meta}
         count = len(store._meta)
+        by_shark: dict = {}
+        for e in store._meta:
+            by_shark[e["shark_id"]] = by_shark.get(e["shark_id"], 0) + 1
     return {
         "embedding_count": count,
         "indexed_sharks": len(shark_ids),
         "embedding_dim": EMBEDDING_DIM,
+        "by_shark": by_shark,
     }
+
+
+@app.get("/embeddings/status")
+def embedding_status(photo_id: str = Query(...)):
+    """Check whether an embedding exists for the given photo_id."""
+    return {"photo_id": photo_id, "in_model": get_store().has_photo(photo_id)}
+
+
+@app.delete("/embeddings")
+def remove_embedding(photo_id: str = Query(...)):
+    """Remove the embedding for the given photo_id."""
+    removed = get_store().remove_by_photo_id(photo_id)
+    return {"photo_id": photo_id, "removed": removed}
 
 
 @app.post("/reset-embeddings")
@@ -124,13 +141,20 @@ async def classify_image(
     except Exception:
         raise HTTPException(status_code=422, detail="Cannot decode image")
 
-    has_bbox = all(v is not None for v in [shark_x, shark_y, shark_w, shark_h,
-                                            zone_x, zone_y, zone_w, zone_h])
-    if has_bbox:
+    has_shark = all(v is not None for v in [shark_x, shark_y, shark_w, shark_h])
+    has_zone  = all(v is not None for v in [zone_x,  zone_y,  zone_w,  zone_h])
+
+    if has_shark and has_zone:
         region = crop_zone(
             img,
             {"x": shark_x, "y": shark_y, "w": shark_w, "h": shark_h},
             {"x": zone_x,  "y": zone_y,  "w": zone_w,  "h": zone_h},
+        )
+    elif has_shark:
+        region = crop_shark_with_auto_zone(
+            img,
+            {"x": shark_x, "y": shark_y, "w": shark_w, "h": shark_h},
+            orientation or "",
         )
     else:
         region = detect_snout(img)
@@ -172,13 +196,20 @@ async def store_embedding(
     except Exception:
         raise HTTPException(status_code=422, detail="Cannot decode image")
 
-    has_bbox = all(v is not None for v in [shark_x, shark_y, shark_w, shark_h,
-                                            zone_x, zone_y, zone_w, zone_h])
-    if has_bbox:
+    has_shark = all(v is not None for v in [shark_x, shark_y, shark_w, shark_h])
+    has_zone  = all(v is not None for v in [zone_x,  zone_y,  zone_w,  zone_h])
+
+    if has_shark and has_zone:
         region = crop_zone(
             img,
             {"x": shark_x, "y": shark_y, "w": shark_w, "h": shark_h},
             {"x": zone_x,  "y": zone_y,  "w": zone_w,  "h": zone_h},
+        )
+    elif has_shark:
+        region = crop_shark_with_auto_zone(
+            img,
+            {"x": shark_x, "y": shark_y, "w": shark_w, "h": shark_h},
+            orientation,
         )
     else:
         region = detect_snout(img)

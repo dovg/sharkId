@@ -76,15 +76,21 @@ def _classify_photo(photo_id: UUID) -> None:
                     db.commit()
 
             # Step 2: classify using bboxes (auto-detected or user-annotated)
+            # Pass shark_bbox alone when zone_bbox is missing — ML will apply
+            # an orientation-aware auto-zone heuristic instead of detect_snout.
             ml_params: dict = {}
-            if photo.shark_bbox and photo.zone_bbox:
-                sb, zb = photo.shark_bbox, photo.zone_bbox
+            if photo.shark_bbox:
+                sb = photo.shark_bbox
                 ml_params = {
                     "shark_x": sb["x"], "shark_y": sb["y"],
                     "shark_w": sb["w"], "shark_h": sb["h"],
-                    "zone_x":  zb["x"], "zone_y":  zb["y"],
-                    "zone_w":  zb["w"], "zone_h":  zb["h"],
                 }
+                if photo.zone_bbox:
+                    zb = photo.zone_bbox
+                    ml_params.update({
+                        "zone_x": zb["x"], "zone_y": zb["y"],
+                        "zone_w": zb["w"], "zone_h": zb["h"],
+                    })
             if photo.orientation:
                 ml_params["orientation"] = photo.orientation
 
@@ -409,6 +415,114 @@ def recheck_photo(
     return enrich_photo(photo)
 
 
+# ── model status / add / remove ───────────────────────────────────────────────
+
+@router.get("/photos/{photo_id}/model-status")
+def photo_model_status(
+    photo_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Check whether this photo's embedding is currently in the ML model."""
+    _get_photo_or_404(db, photo_id)
+    try:
+        with httpx.Client(timeout=10.0) as http:
+            resp = http.get(
+                f"{settings.ml_service_url}/embeddings/status",
+                params={"photo_id": str(photo_id)},
+            )
+            return resp.json()
+    except Exception:
+        return {"photo_id": str(photo_id), "in_model": False}
+
+
+@router.post("/photos/{photo_id}/add-to-model")
+def add_photo_to_model(
+    photo_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_editor),
+):
+    """Compute and store an embedding for this photo in the ML model.
+
+    Photo must be validated and linked to a shark.
+    """
+    photo = _get_photo_or_404(db, photo_id)
+    if photo.processing_status != ProcessingStatus.validated or not photo.shark_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Photo must be validated and linked to a shark",
+        )
+    shark = db.get(Shark, photo.shark_id)
+    if not shark:
+        raise HTTPException(status_code=404, detail="Shark not found")
+
+    image_data = get_object_bytes(photo.object_key)
+    ml_params: dict = {
+        "shark_id": str(photo.shark_id),
+        "display_name": shark.display_name,
+        "photo_id": str(photo_id),
+    }
+    if photo.shark_bbox and photo.zone_bbox:
+        sb, zb = photo.shark_bbox, photo.zone_bbox
+        ml_params.update({
+            "shark_x": sb["x"], "shark_y": sb["y"],
+            "shark_w": sb["w"], "shark_h": sb["h"],
+            "zone_x":  zb["x"], "zone_y":  zb["y"],
+            "zone_w":  zb["w"], "zone_h":  zb["h"],
+        })
+    elif photo.shark_bbox:
+        sb = photo.shark_bbox
+        ml_params.update({
+            "shark_x": sb["x"], "shark_y": sb["y"],
+            "shark_w": sb["w"], "shark_h": sb["h"],
+        })
+    if photo.orientation:
+        ml_params["orientation"] = photo.orientation
+
+    try:
+        with httpx.Client(timeout=30.0) as http:
+            resp = http.post(
+                f"{settings.ml_service_url}/embeddings",
+                content=image_data,
+                headers={"Content-Type": photo.content_type},
+                params=ml_params,
+            )
+            log_event(
+                db, current_user, "photo.add_to_model",
+                resource_type="photo", resource_id=photo_id, request=request,
+            )
+            db.commit()
+            return resp.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"ML service error: {exc}") from exc
+
+
+@router.delete("/photos/{photo_id}/from-model", status_code=status.HTTP_200_OK)
+def remove_photo_from_model(
+    photo_id: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_editor),
+):
+    """Remove this photo's embedding from the ML model."""
+    _get_photo_or_404(db, photo_id)
+    try:
+        with httpx.Client(timeout=10.0) as http:
+            resp = http.delete(
+                f"{settings.ml_service_url}/embeddings",
+                params={"photo_id": str(photo_id)},
+            )
+            log_event(
+                db, current_user, "photo.remove_from_model",
+                resource_type="photo", resource_id=photo_id, request=request,
+            )
+            db.commit()
+            return resp.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"ML service error: {exc}") from exc
+
+
 # ── rebuild embeddings ────────────────────────────────────────────────────────
 
 def _rebuild_embeddings_task() -> None:
@@ -545,6 +659,10 @@ def validate_photo(
 
     if body.set_as_profile_photo and photo.shark_id:
         photo.is_profile_photo = True
+
+    # Always store embedding when a shark is linked (not just when set as profile photo).
+    # With a small dataset every reference embedding matters for recognition quality.
+    if photo.shark_id:
         background_tasks.add_task(
             _store_embedding_for_shark,
             photo.id,

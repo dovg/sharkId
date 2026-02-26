@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { annotatePhoto, deletePhoto, getAuditLog, getPhoto, recheckPhoto } from '../api'
+import { addPhotoToModel, annotatePhoto, deletePhoto, getAuditLog, getPhoto, getPhotoModelStatus, recheckPhoto, removePhotoFromModel } from '../api'
 import { useAuth } from '../auth'
 import { EventHistory } from '../components/EventHistory'
 import { Sidebar } from '../components/Sidebar'
@@ -70,6 +70,8 @@ export default function PhotoDetail() {
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [rechecking, setRechecking] = useState(false)
+  const [inModel, setInModel] = useState<boolean | null>(null)
+  const [modelBusy, setModelBusy] = useState(false)
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
 
@@ -92,6 +94,10 @@ export default function PhotoDetail() {
         if (p.shark_bbox) setSharkRect(p.shark_bbox)
         if (p.zone_bbox) setZoneRect(p.zone_bbox)
         if (p.orientation) setOrientation(p.orientation)
+        // Load model membership for validated+linked photos
+        if (p.processing_status === 'validated' && p.shark_id) {
+          getPhotoModelStatus(id).then(s => setInModel(s.in_model)).catch(() => {})
+        }
       })
       .catch(() => setError('Failed to load photo'))
       .finally(() => setLoading(false))
@@ -176,6 +182,36 @@ export default function PhotoDetail() {
     }
   }
 
+  // ── model toggle ──────────────────────────────────────────────────────────
+
+  const handleAddToModel = async () => {
+    if (!photo) return
+    setModelBusy(true)
+    setError('')
+    try {
+      await addPhotoToModel(photo.id)
+      setInModel(true)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to add to model')
+    } finally {
+      setModelBusy(false)
+    }
+  }
+
+  const handleRemoveFromModel = async () => {
+    if (!photo) return
+    setModelBusy(true)
+    setError('')
+    try {
+      await removePhotoFromModel(photo.id)
+      setInModel(false)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to remove from model')
+    } finally {
+      setModelBusy(false)
+    }
+  }
+
   // ── recheck ───────────────────────────────────────────────────────────────
 
   const handleRecheck = async () => {
@@ -239,6 +275,7 @@ export default function PhotoDetail() {
     (photo.processing_status === 'validated' && !photo.shark_id) ||
     photo.processing_status === 'error'
   )
+  const showModelToggle = canEdit && photo.processing_status === 'validated' && !!photo.shark_id
   const stepLabel = (s: 1 | 2 | 3) => s < step ? 'done' : s === step ? 'active' : ''
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -259,6 +296,16 @@ export default function PhotoDetail() {
           </div>
           <div className="flex-gap8" style={{ alignItems: 'center' }}>
             <StatusBadge status={photo.processing_status} />
+            {showModelToggle && inModel !== null && (
+              <button
+                className={`btn btn-sm ${inModel ? 'btn-outline' : 'btn-teal'}`}
+                disabled={modelBusy}
+                onClick={inModel ? handleRemoveFromModel : handleAddToModel}
+                title={inModel ? 'Remove this photo from the ML model' : 'Add this photo to the ML model'}
+              >
+                {modelBusy ? '…' : inModel ? '✓ In Model' : '+ Add to Model'}
+              </button>
+            )}
             {canRecheck && (
               <button
                 className="btn btn-outline btn-sm"

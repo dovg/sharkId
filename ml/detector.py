@@ -110,6 +110,47 @@ def auto_detect(img_bytes: bytes) -> Optional[dict]:
     return {"shark_bbox": shark_bbox, "zone_bbox": zone_bbox}
 
 
+def crop_shark_with_auto_zone(
+    img: Image.Image,
+    shark_bbox: dict,
+    orientation: str = "",
+) -> Image.Image:
+    """Crop the shark region and apply an orientation-aware zone heuristic.
+
+    Used when the user has annotated shark_bbox but not zone_bbox.
+    The mouth/snout of a tiger shark is on the side that the shark faces,
+    so the identification zone is biased toward that side.
+
+    orientation:
+      "face_left"  → zone is on the left side of the shark crop
+      "face_right" → zone is on the right side of the shark crop
+      ""           → zone is centered (no orientation known)
+    """
+    img = img.convert("RGB")
+    iw, ih = img.size
+
+    sx = int(shark_bbox["x"] * iw)
+    sy = int(shark_bbox["y"] * ih)
+    sw = max(1, int(shark_bbox["w"] * iw))
+    sh = max(1, int(shark_bbox["h"] * ih))
+    shark_crop = img.crop((sx, sy, sx + sw, sy + sh))
+
+    if orientation == "face_left":
+        zone = {"x": 0.05, "y": 0.10, "w": 0.50, "h": 0.80}
+    elif orientation == "face_right":
+        zone = {"x": 0.45, "y": 0.10, "w": 0.50, "h": 0.80}
+    else:
+        zone = {"x": 0.25, "y": 0.10, "w": 0.50, "h": 0.80}
+
+    zx = int(zone["x"] * sw)
+    zy = int(zone["y"] * sh)
+    zw = max(1, int(zone["w"] * sw))
+    zh = max(1, int(zone["h"] * sh))
+    zone_crop = shark_crop.crop((zx, zy, zx + zw, zy + zh))
+
+    return zone_crop.resize(SNOUT_SIZE, Image.LANCZOS)
+
+
 def crop_zone(
     img: Image.Image,
     shark_bbox: dict,  # {x, y, w, h} normalised 0-1, relative to full image
