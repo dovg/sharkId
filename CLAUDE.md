@@ -141,3 +141,4 @@ Design tokens: `--navy #1b3a5c` · `--blue #2d7dd2` · `--teal #0d9e93` · `--bg
 
 ## Documentation
 Requirements in `docs/` (Russian): domain overview, use cases, acceptance criteria, fixed decisions, architecture, ROADMAP.
+Deployment guide: `DEPLOY.md` — prerequisites, setup, backups, troubleshooting.
