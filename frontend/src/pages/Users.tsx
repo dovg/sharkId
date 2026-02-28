@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { createUser, deleteUser, getUsers, updateUser } from '../api'
-import { Modal } from '../components/Modal'
-import { Sidebar } from '../components/Sidebar'
 import { useAuth } from '../auth'
+import { AlertError } from '../components/AlertError'
+import { LoadingState } from '../components/LoadingState'
+import { Modal } from '../components/Modal'
+import { PageLayout } from '../components/PageLayout'
 import { usePageTitle } from '../hooks'
 import type { Role, UserRecord } from '../types'
 
@@ -34,7 +36,6 @@ export default function Users() {
       await updateUser(userId, { role })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to update role')
-      // Reload to get correct state
       getUsers().then(setUsers).catch(() => {})
     }
   }
@@ -83,90 +84,83 @@ export default function Users() {
   const resetUser = resetUserId ? users.find(u => u.id === resetUserId) : null
 
   return (
-    <div className="app">
-      <Sidebar />
-      <div className="main">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Users</h1>
-            <div className="page-subtitle">{users.length} user{users.length !== 1 ? 's' : ''}</div>
-          </div>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-            + Add User
-          </button>
-        </div>
+    <PageLayout
+      title="Users"
+      subtitle={`${users.length} user${users.length !== 1 ? 's' : ''}`}
+      actions={
+        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+          + Add User
+        </button>
+      }
+    >
+      <AlertError message={error} />
 
-        <div className="page-body">
-          {error && <div className="alert-error">{error}</div>}
-
-          {loading ? (
-            <div className="muted">Loading…</div>
-          ) : (
-            <div className="card">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Created</th>
-                    <th>Actions</th>
+      {loading ? (
+        <LoadingState />
+      ) : (
+        <div className="card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="muted" style={{ textAlign: 'center' }}>
+                    No users found
+                  </td>
+                </tr>
+              ) : (
+                users.map(u => (
+                  <tr key={u.id}>
+                    <td>
+                      {u.email}
+                      {u.email === currentEmail && (
+                        <span className="muted" style={{ fontSize: 11, marginLeft: 6 }}>(you)</span>
+                      )}
+                    </td>
+                    <td>
+                      <select
+                        value={u.role}
+                        onChange={e => handleRoleChange(u.id, e.target.value as Role)}
+                        style={{ padding: '2px 6px', fontSize: 13 }}
+                      >
+                        <option value="viewer">viewer</option>
+                        <option value="editor">editor</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </td>
+                    <td>{new Date(u.created_at).toLocaleDateString('en')}</td>
+                    <td>
+                      <div className="flex-gap8">
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => { setResetUserId(u.id); setResetPassword(''); setResetError('') }}
+                        >
+                          Reset Password
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          disabled={u.email === currentEmail}
+                          title={u.email === currentEmail ? 'Cannot delete your own account' : undefined}
+                          onClick={() => handleDelete(u.id, u.email)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="muted" style={{ textAlign: 'center' }}>
-                        No users found
-                      </td>
-                    </tr>
-                  ) : (
-                    users.map(u => (
-                      <tr key={u.id}>
-                        <td>
-                          {u.email}
-                          {u.email === currentEmail && (
-                            <span className="muted" style={{ fontSize: 11, marginLeft: 6 }}>(you)</span>
-                          )}
-                        </td>
-                        <td>
-                          <select
-                            value={u.role}
-                            onChange={e => handleRoleChange(u.id, e.target.value as Role)}
-                            style={{ padding: '2px 6px', fontSize: 13 }}
-                          >
-                            <option value="viewer">viewer</option>
-                            <option value="editor">editor</option>
-                            <option value="admin">admin</option>
-                          </select>
-                        </td>
-                        <td>{new Date(u.created_at).toLocaleDateString('en')}</td>
-                        <td>
-                          <div className="flex-gap8">
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => { setResetUserId(u.id); setResetPassword(''); setResetError('') }}
-                            >
-                              Reset Password
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              disabled={u.email === currentEmail}
-                              title={u.email === currentEmail ? 'Cannot delete your own account' : undefined}
-                              onClick={() => handleDelete(u.id, u.email)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      </div>
+      )}
 
       {showAdd && (
         <Modal title="Add User" onClose={() => setShowAdd(false)}>
@@ -242,6 +236,6 @@ export default function Users() {
           </div>
         </Modal>
       )}
-    </div>
+    </PageLayout>
   )
 }

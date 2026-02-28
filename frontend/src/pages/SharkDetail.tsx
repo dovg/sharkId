@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteShark, exportShark, getAuditLog, getMlStats, getShark, updateShark } from '../api'
 import { useAuth } from '../auth'
+import { AlertError } from '../components/AlertError'
 import { EventHistory } from '../components/EventHistory'
 import { Lightbox } from '../components/Lightbox'
+import { LoadingState } from '../components/LoadingState'
 import { Modal } from '../components/Modal'
-import { Sidebar } from '../components/Sidebar'
+import { PageLayout } from '../components/PageLayout'
 import { StatusBadge } from '../components/StatusBadge'
 import { usePageTitle } from '../hooks'
 import type { AuditEvent, SharkDetail as SharkDetailType } from '../types'
@@ -70,180 +72,163 @@ export default function SharkDetail() {
 
   if (loading)
     return (
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <div className="page-body"><div className="muted">Loading…</div></div>
-        </div>
-      </div>
+      <PageLayout title="Shark">
+        <LoadingState />
+      </PageLayout>
     )
 
   if (!shark)
     return (
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <div className="page-body">
-            <div className="alert-error">{error || 'Shark not found'}</div>
-          </div>
-        </div>
-      </div>
+      <PageLayout title="Shark">
+        <AlertError message={error || 'Shark not found'} />
+      </PageLayout>
     )
 
   return (
-    <div className="app">
-      <Sidebar />
-      <div className="main">
-        <div className="page-header">
-          <div>
-            <div className="breadcrumb">
-              <Link to="/sharks">Shark Catalog</Link> / {shark.display_name}
-            </div>
-            <h1 className="page-title">{shark.display_name}</h1>
+    <PageLayout
+      title={shark.display_name}
+      breadcrumb={[{ label: 'Shark Catalog', to: '/sharks' }]}
+      breadcrumbCurrent={shark.display_name}
+      actions={canEdit ? (
+        <>
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => exportShark(shark.id, shark.display_name).catch(() => {})}
+          >
+            Export Excel
+          </button>
+          <button className="btn btn-outline" onClick={() => setShowRename(true)}>
+            Rename
+          </button>
+          <button
+            className="btn btn-danger"
+            onClick={async () => {
+              if (!shark) return
+              if (!window.confirm(`Delete "${shark.display_name}"? Photos and observations will be unlinked.`)) return
+              try {
+                await deleteShark(shark.id)
+                navigate('/sharks')
+              } catch (err: unknown) {
+                setError(err instanceof Error ? err.message : 'Failed to delete')
+              }
+            }}
+          >
+            Delete
+          </button>
+        </>
+      ) : undefined}
+    >
+      <AlertError message={error} />
+
+      {/* Profile card */}
+      <div className="card mb16">
+        <div className="profile-header">
+          <div className="profile-avatar">
+            {shark.main_photo_url
+              ? <img src={shark.main_photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+              : '🦈'}
           </div>
-          {canEdit && (
-            <div className="flex-gap8">
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() => exportShark(shark.id, shark.display_name).catch(() => {})}
-              >
-                Export Excel
-              </button>
-              <button className="btn btn-outline" onClick={() => setShowRename(true)}>
-                Rename
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={async () => {
-                  if (!shark) return
-                  if (!window.confirm(`Delete "${shark.display_name}"? Photos and observations will be unlinked.`)) return
-                  try {
-                    await deleteShark(shark.id)
-                    navigate('/sharks')
-                  } catch (err: unknown) {
-                    setError(err instanceof Error ? err.message : 'Failed to delete')
-                  }
-                }}
-              >
-                Delete
-              </button>
+          <div style={{ flex: 1 }}>
+            <div className="flex-gap8 mb8">
+              <StatusBadge status={shark.name_status} />
             </div>
-          )}
+            <div className="stat-row">
+              <div className="stat">
+                <span className="stat-val">{shark.sighting_count}</span>
+                <span className="stat-lbl">Sightings</span>
+              </div>
+              <div className="stat">
+                <span className="stat-val">{shark.all_photos.length}</span>
+                <span className="stat-lbl">Photos</span>
+              </div>
+              <div className="stat">
+                <span className="stat-val">{embeddingCount ?? '—'}</span>
+                <span className="stat-lbl">In Model</span>
+              </div>
+              <div className="stat">
+                <span className="stat-val">
+                  {shark.first_seen
+                    ? new Date(shark.first_seen).toLocaleDateString('en')
+                    : '—'}
+                </span>
+                <span className="stat-lbl">First Seen</span>
+              </div>
+              <div className="stat">
+                <span className="stat-val">
+                  {shark.last_seen
+                    ? new Date(shark.last_seen).toLocaleDateString('en')
+                    : '—'}
+                </span>
+                <span className="stat-lbl">Last Seen</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="page-body">
-          {error && <div className="alert-error">{error}</div>}
 
-          {/* Profile card */}
-          <div className="card mb16">
-            <div className="profile-header">
-              <div className="profile-avatar">
-                {shark.main_photo_url
-                  ? <img src={shark.main_photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                  : '🦈'}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div className="flex-gap8 mb8">
-                  <StatusBadge status={shark.name_status} />
-                </div>
-                <div className="stat-row">
-                  <div className="stat">
-                    <span className="stat-val">{shark.sighting_count}</span>
-                    <span className="stat-lbl">Sightings</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-val">{shark.all_photos.length}</span>
-                    <span className="stat-lbl">Photos</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-val">{embeddingCount ?? '—'}</span>
-                    <span className="stat-lbl">In Model</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-val">
-                      {shark.first_seen
-                        ? new Date(shark.first_seen).toLocaleDateString('en')
-                        : '—'}
-                    </span>
-                    <span className="stat-lbl">First Seen</span>
-                  </div>
-                  <div className="stat">
-                    <span className="stat-val">
-                      {shark.last_seen
-                        ? new Date(shark.last_seen).toLocaleDateString('en')
-                        : '—'}
-                    </span>
-                    <span className="stat-lbl">Last Seen</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {shark.all_photos.length > 0 && (
-              <div className="profile-photos-strip">
-                {shark.all_photos.map(p => (
-                  <div
-                    key={p.id}
-                    className={`strip-photo${p.id === shark.main_photo_id ? ' primary' : ''}`}
-                    data-clickable=""
-                    onClick={() => p.url && setLightboxIndex(shark.all_photos.indexOf(p))}
+        {shark.all_photos.length > 0 && (
+          <div className="profile-photos-strip">
+            {shark.all_photos.map(p => (
+              <div
+                key={p.id}
+                className={`strip-photo${p.id === shark.main_photo_id ? ' primary' : ''}`}
+                data-clickable=""
+                onClick={() => p.url && setLightboxIndex(shark.all_photos.indexOf(p))}
+              >
+                {p.url ? <img src={p.url} alt="" /> : '📷'}
+                {canEdit && (
+                  <button
+                    className="strip-set-main"
+                    title="Set as main photo"
+                    onClick={e => { e.stopPropagation(); handleSetMain(p.id) }}
                   >
-                    {p.url ? <img src={p.url} alt="" /> : '📷'}
-                    {canEdit && (
-                      <button
-                        className="strip-set-main"
-                        title="Set as main photo"
-                        onClick={e => { e.stopPropagation(); handleSetMain(p.id) }}
-                      >
-                        ★
-                      </button>
+                    ★
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Observation timeline */}
+      {shark.observations.length > 0 && (
+        <div className="card">
+          <div className="card-title">Observation History</div>
+          <ul className="timeline">
+            {shark.observations.map(obs => (
+              <li key={obs.id} className="tl-item">
+                <div className="tl-dot">🔍</div>
+                <div className="tl-content">
+                  <div className="tl-meta">
+                    {obs.taken_at
+                      ? new Date(obs.taken_at).toLocaleString('en')
+                      : '—'}
+                  </div>
+                  <div className="flex-gap8 mb4">
+                    <StatusBadge
+                      status={obs.confirmed_at ? 'confirmed' : 'draft'}
+                    />
+                    {obs.comment && (
+                      <span className="muted">{obs.comment}</span>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Observation timeline */}
-          {shark.observations.length > 0 && (
-            <div className="card">
-              <div className="card-title">Observation History</div>
-              <ul className="timeline">
-                {shark.observations.map(obs => (
-                  <li key={obs.id} className="tl-item">
-                    <div className="tl-dot">🔍</div>
-                    <div className="tl-content">
-                      <div className="tl-meta">
-                        {obs.taken_at
-                          ? new Date(obs.taken_at).toLocaleString('en')
-                          : '—'}
-                      </div>
-                      <div className="flex-gap8 mb4">
-                        <StatusBadge
-                          status={obs.confirmed_at ? 'confirmed' : 'draft'}
-                        />
-                        {obs.comment && (
-                          <span className="muted">{obs.comment}</span>
-                        )}
-                      </div>
-                      <Link to={`/observations/${obs.id}`} className="link">
-                        View observation
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {shark.observations.length === 0 && (
-            <div className="empty-state">No observations recorded yet.</div>
-          )}
-
-          {/* Event History */}
-          <div className="mt16">
-            <EventHistory events={events} loading={eventsLoading} />
-          </div>
+                  <Link to={`/observations/${obs.id}`} className="link">
+                    View observation
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
+      )}
+
+      {shark.observations.length === 0 && (
+        <div className="empty-state">No observations recorded yet.</div>
+      )}
+
+      {/* Event History */}
+      <div className="mt16">
+        <EventHistory events={events} loading={eventsLoading} />
       </div>
 
       {lightboxIndex !== null && shark.all_photos[lightboxIndex]?.url && (
@@ -290,6 +275,6 @@ export default function SharkDetail() {
           </div>
         </Modal>
       )}
-    </div>
+    </PageLayout>
   )
 }

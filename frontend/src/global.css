@@ -13,6 +13,7 @@
   --orange: #f5a623;
   --red:    #e5533d;
   --sidebar-w: 224px;
+  --header-h: 57px;
 }
 
 [data-theme="dark"] {
@@ -54,7 +55,7 @@ body {
 }
 
 .sidebar-logo {
-  padding: 20px 18px;
+  padding: 18px 18px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -118,6 +119,7 @@ body {
 }
 .page-title { font-size: 19px; font-weight: 600; }
 .page-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.page-header-actions { display: flex; align-items: center; gap: 8px; }
 .page-body { padding: 24px 28px; flex: 1; }
 
 /* ── Card ────────────────────────────────────────────── */
@@ -306,7 +308,7 @@ textarea { resize: vertical; min-height: 80px; }
 }
 .validation-photo-panel {
   position: sticky;
-  top: 76px;
+  top: var(--header-h);
 }
 .photo-preview-box {
   width: 100%;

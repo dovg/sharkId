@@ -6,8 +6,10 @@ import {
   updateLocation,
 } from '../api'
 import { useAuth } from '../auth'
+import { AlertError } from '../components/AlertError'
+import { LoadingState } from '../components/LoadingState'
 import { Modal } from '../components/Modal'
-import { Sidebar } from '../components/Sidebar'
+import { PageLayout } from '../components/PageLayout'
 import { usePageTitle } from '../hooks'
 import type { Location } from '../types'
 
@@ -98,156 +100,149 @@ export default function Locations() {
   )
 
   return (
-    <div className="app">
-      <Sidebar />
-      <div className="main">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Locations</h1>
-            <div className="page-subtitle">{locations.length} dive spots</div>
-          </div>
-          <div className="flex-gap8">
-            <input
-              type="text"
-              placeholder="Search…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ width: 220 }}
-            />
-            {canEdit && (
-              <button
-                className="btn btn-primary"
-                onClick={() => setShowForm(v => !v)}
-              >
-                + Add Location
-              </button>
-            )}
-          </div>
-        </div>
+    <PageLayout
+      title="Locations"
+      subtitle={`${locations.length} dive spots`}
+      actions={
+        <>
+          <input
+            type="text"
+            placeholder="Search…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: 220 }}
+          />
+          {canEdit && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowForm(v => !v)}
+            >
+              + Add Location
+            </button>
+          )}
+        </>
+      }
+    >
+      <AlertError message={error} />
 
-        <div className="page-body">
-          {error && <div className="alert-error">{error}</div>}
-
-          {canEdit && showForm && (
-            <div className="inline-form mb16">
-              <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
-                Add Location
+      {canEdit && showForm && (
+        <div className="inline-form mb16">
+          <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
+            Add Location
+          </div>
+          <form onSubmit={handleCreate}>
+            <div className="form-row-3">
+              <div className="form-group">
+                <label className="form-label">Country</label>
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                  required
+                />
               </div>
-              <form onSubmit={handleCreate}>
-                <div className="form-row-3">
-                  <div className="form-group">
-                    <label className="form-label">Country</label>
-                    <input
-                      type="text"
-                      value={form.country}
-                      onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Spot Name</label>
-                    <input
-                      type="text"
-                      value={form.spot_name}
-                      onChange={e =>
-                        setForm(f => ({ ...f, spot_name: e.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Lat / Lon</label>
-                    <div className="flex-gap8">
-                      <input
-                        type="text"
-                        placeholder="Lat"
-                        value={form.lat}
-                        onChange={e => setForm(f => ({ ...f, lat: e.target.value }))}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Lon"
-                        value={form.lon}
-                        onChange={e => setForm(f => ({ ...f, lon: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
+              <div className="form-group">
+                <label className="form-label">Spot Name</label>
+                <input
+                  type="text"
+                  value={form.spot_name}
+                  onChange={e =>
+                    setForm(f => ({ ...f, spot_name: e.target.value }))
+                  }
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Lat / Lon</label>
                 <div className="flex-gap8">
-                  <button type="submit" className="btn btn-primary">Add</button>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => setShowForm(false)}
-                  >
-                    Cancel
-                  </button>
+                  <input
+                    type="text"
+                    placeholder="Lat"
+                    value={form.lat}
+                    onChange={e => setForm(f => ({ ...f, lat: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Lon"
+                    value={form.lon}
+                    onChange={e => setForm(f => ({ ...f, lon: e.target.value }))}
+                  />
                 </div>
-              </form>
+              </div>
             </div>
-          )}
-
-          {loading ? (
-            <div className="muted">Loading…</div>
-          ) : (
-            <div className="card">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Country</th>
-                    <th>Spot</th>
-                    <th>Coordinates</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="muted"
-                        style={{ textAlign: 'center' }}
-                      >
-                        No locations found
-                      </td>
-                    </tr>
-                  ) : (
-                    filtered.map(l => (
-                      <tr key={l.id}>
-                        <td>{l.country}</td>
-                        <td>{l.spot_name}</td>
-                        <td>
-                          {l.lat != null
-                            ? `${l.lat.toFixed(4)}, ${l.lon?.toFixed(4)}`
-                            : '—'}
-                        </td>
-                        <td>
-                          {canEdit && (
-                            <div className="flex-gap8">
-                              <button
-                                className="btn btn-outline btn-sm"
-                                onClick={() => openEdit(l)}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className="btn btn-danger btn-sm"
-                                onClick={() => handleDelete(l.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <div className="flex-gap8">
+              <button type="submit" className="btn btn-primary">Add</button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowForm(false)}
+              >
+                Cancel
+              </button>
             </div>
-          )}
+          </form>
         </div>
-      </div>
+      )}
+
+      {loading ? (
+        <LoadingState />
+      ) : (
+        <div className="card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Country</th>
+                <th>Spot</th>
+                <th>Coordinates</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="muted"
+                    style={{ textAlign: 'center' }}
+                  >
+                    No locations found
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(l => (
+                  <tr key={l.id}>
+                    <td>{l.country}</td>
+                    <td>{l.spot_name}</td>
+                    <td>
+                      {l.lat != null
+                        ? `${l.lat.toFixed(4)}, ${l.lon?.toFixed(4)}`
+                        : '—'}
+                    </td>
+                    <td>
+                      {canEdit && (
+                        <div className="flex-gap8">
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => openEdit(l)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleDelete(l.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {editLoc && (
         <Modal
@@ -296,6 +291,6 @@ export default function Locations() {
           </div>
         </Modal>
       )}
-    </div>
+    </PageLayout>
   )
 }

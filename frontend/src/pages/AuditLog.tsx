@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAuditLog } from '../api'
-import { Sidebar } from '../components/Sidebar'
+import { LoadingState } from '../components/LoadingState'
+import { PageLayout } from '../components/PageLayout'
 import { usePageTitle } from '../hooks'
 import type { AuditEvent } from '../types'
 
@@ -65,63 +66,55 @@ export default function AuditLog() {
   }
 
   return (
-    <div className="app">
-      <Sidebar />
-      <div className="main">
-        <div className="page-header">
-          <h1 className="page-title">Audit Log</h1>
-        </div>
-        <div className="page-body">
-          {loading && <div className="muted">Loading…</div>}
-          {!loading && events.length === 0 && (
-            <div className="muted">No events recorded yet.</div>
-          )}
-          {!loading && events.length > 0 && (
-            <div className="card" style={{ padding: 0 }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>User</th>
-                    <th>Action</th>
-                    <th>Resource</th>
+    <PageLayout title="Audit Log">
+      {loading && <LoadingState />}
+      {!loading && events.length === 0 && (
+        <div className="muted">No events recorded yet.</div>
+      )}
+      {!loading && events.length > 0 && (
+        <div className="card" style={{ padding: 0 }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Resource</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map(ev => {
+                const path = ev.resource_type ? RESOURCE_PATH[ev.resource_type] : null
+                return (
+                  <tr key={ev.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {new Date(ev.created_at).toLocaleString('en')}
+                    </td>
+                    <td>{ev.user_email}</td>
+                    <td>{ACTION_LABEL[ev.action] ?? ev.action}</td>
+                    <td>
+                      {path && ev.resource_id ? (
+                        <Link to={`${path}/${ev.resource_id}`} className="link">
+                          {ev.resource_type}/{ev.resource_id.slice(0, 8)}…
+                        </Link>
+                      ) : (
+                        ev.resource_type ?? '—'
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {events.map(ev => {
-                    const path = ev.resource_type ? RESOURCE_PATH[ev.resource_type] : null
-                    return (
-                      <tr key={ev.id}>
-                        <td style={{ whiteSpace: 'nowrap' }}>
-                          {new Date(ev.created_at).toLocaleString('en')}
-                        </td>
-                        <td>{ev.user_email}</td>
-                        <td>{ACTION_LABEL[ev.action] ?? ev.action}</td>
-                        <td>
-                          {path && ev.resource_id ? (
-                            <Link to={`${path}/${ev.resource_id}`} className="link">
-                              {ev.resource_type}/{ev.resource_id.slice(0, 8)}…
-                            </Link>
-                          ) : (
-                            ev.resource_type ?? '—'
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {hasMore && (
-            <div style={{ marginTop: 16 }}>
-              <button className="btn btn-outline btn-sm" onClick={loadMore}>
-                Load more
-              </button>
-            </div>
-          )}
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
-    </div>
+      )}
+      {hasMore && (
+        <div style={{ marginTop: 16 }}>
+          <button className="btn btn-outline btn-sm" onClick={loadMore}>
+            Load more
+          </button>
+        </div>
+      )}
+    </PageLayout>
   )
 }

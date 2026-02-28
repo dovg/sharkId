@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getDiveSessions, getLocations, getObservation, getPhoto, getSharks, updateObservation } from '../api'
 import { useAuth } from '../auth'
-import { Sidebar } from '../components/Sidebar'
+import { AlertError } from '../components/AlertError'
+import { LoadingState } from '../components/LoadingState'
+import { PageLayout } from '../components/PageLayout'
 import { StatusBadge } from '../components/StatusBadge'
 import { usePageTitle } from '../hooks'
 import type { DiveSession, Location, Observation, Photo, Shark } from '../types'
@@ -84,24 +86,16 @@ export default function ObservationDetail() {
 
   if (loading)
     return (
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <div className="page-body"><div className="muted">Loading…</div></div>
-        </div>
-      </div>
+      <PageLayout title="Observation Detail">
+        <LoadingState />
+      </PageLayout>
     )
 
   if (!obs)
     return (
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <div className="page-body">
-            <div className="alert-error">{error || 'Observation not found'}</div>
-          </div>
-        </div>
-      </div>
+      <PageLayout title="Observation Detail">
+        <AlertError message={error || 'Observation not found'} />
+      </PageLayout>
     )
 
   const isConfirmed = !!obs.confirmed_at
@@ -110,238 +104,222 @@ export default function ObservationDetail() {
   const exifEntries = obs.exif_payload ? Object.entries(obs.exif_payload).filter(([k]) => k !== 'GPSInfo') : []
 
   return (
-    <div className="app">
-      <Sidebar />
-      <div className="main">
-        <div className="page-header">
-          <div>
-            <div className="breadcrumb">
-              {obs.dive_session_id && (
-                <>
-                  <Link to={`/dive-sessions/${obs.dive_session_id}`}>Session</Link>
-                  {' / '}
-                </>
-              )}
-              Observation
+    <PageLayout
+      title="Observation Detail"
+      breadcrumb={obs.dive_session_id
+        ? [{ label: 'Session', to: `/dive-sessions/${obs.dive_session_id}` }]
+        : undefined}
+      breadcrumbCurrent="Observation"
+      actions={<StatusBadge status={isConfirmed ? 'confirmed' : 'draft'} />}
+    >
+      <AlertError message={error} />
+
+      <div className="grid2">
+        {/* Left: photo + info links */}
+        <div className="card">
+          <div className="card-body">
+            {photo?.url ? (
+              <div className="annot-photo-wrap mb16">
+                <img src={photo.url} alt="" draggable={false} />
+                {photo.shark_bbox && photo.zone_bbox && (
+                  <svg
+                    className="annot-svg"
+                    viewBox="0 0 1 1"
+                    preserveAspectRatio="none"
+                    style={{ cursor: 'default', pointerEvents: 'none' }}
+                  >
+                    <rect
+                      x={photo.shark_bbox.x} y={photo.shark_bbox.y}
+                      width={photo.shark_bbox.w} height={photo.shark_bbox.h}
+                      fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003"
+                    />
+                    <rect
+                      x={photo.shark_bbox.x + photo.zone_bbox.x * photo.shark_bbox.w}
+                      y={photo.shark_bbox.y + photo.zone_bbox.y * photo.shark_bbox.h}
+                      width={photo.zone_bbox.w * photo.shark_bbox.w}
+                      height={photo.zone_bbox.h * photo.shark_bbox.h}
+                      fill="rgba(255,140,0,0.15)" stroke="#ff8c00" strokeWidth="0.003"
+                    />
+                  </svg>
+                )}
+              </div>
+            ) : (
+              <div className="photo-preview-box mb16">📷</div>
+            )}
+            {photo && canEdit && (
+              <div className="mb16">
+                <Link to={`/photos/${photo.id}`} className="btn btn-outline btn-sm">
+                  Edit Photo Annotation
+                </Link>
+              </div>
+            )}
+            <div className="exif-table">
+              <div className="exif-row">
+                <span className="exif-key">Shark</span>
+                <span>
+                  {obs.shark_id ? (
+                    <Link to={`/sharks/${obs.shark_id}`} className="link">
+                      View shark
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </span>
+              </div>
+              <div className="exif-row">
+                <span className="exif-key">Session</span>
+                <span>
+                  {obs.dive_session_id ? (
+                    <Link
+                      to={`/dive-sessions/${obs.dive_session_id}`}
+                      className="link"
+                    >
+                      View session
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </span>
+              </div>
+              <div className="exif-row">
+                <span className="exif-key">Location</span>
+                <span>
+                  {obs.location_id && locMap[obs.location_id]
+                    ? `${locMap[obs.location_id].spot_name}, ${locMap[obs.location_id].country}`
+                    : '—'}
+                </span>
+              </div>
             </div>
-            <h1 className="page-title">Observation Detail</h1>
+
+            {/* Req8: collapsible EXIF panel */}
+            {exifEntries.length > 0 && (
+              <div className="mt16">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setExifOpen(v => !v)}
+                  style={{ fontSize: 12 }}
+                >
+                  {exifOpen ? '▲ Hide EXIF data' : '▼ Show EXIF data'}
+                </button>
+                {exifOpen && (
+                  <div className="exif-table mt8" style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {exifEntries.map(([k, v]) => (
+                      <div key={k} className="exif-row">
+                        <span className="exif-key" style={{ fontSize: 11 }}>{k}</span>
+                        <span style={{ fontSize: 11, wordBreak: 'break-all' }}>
+                          {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <StatusBadge status={isConfirmed ? 'confirmed' : 'draft'} />
         </div>
 
-        <div className="page-body">
-          {error && <div className="alert-error">{error}</div>}
-
-          <div className="grid2">
-            {/* Left: photo + info links */}
-            <div className="card">
-              <div className="card-body">
-                {photo?.url ? (
-                  <div className="annot-photo-wrap mb16">
-                    <img src={photo.url} alt="" draggable={false} />
-                    {photo.shark_bbox && photo.zone_bbox && (
-                      <svg
-                        className="annot-svg"
-                        viewBox="0 0 1 1"
-                        preserveAspectRatio="none"
-                        style={{ cursor: 'default', pointerEvents: 'none' }}
-                      >
-                        <rect
-                          x={photo.shark_bbox.x} y={photo.shark_bbox.y}
-                          width={photo.shark_bbox.w} height={photo.shark_bbox.h}
-                          fill="rgba(13,158,147,0.15)" stroke="#0d9e93" strokeWidth="0.003"
-                        />
-                        <rect
-                          x={photo.shark_bbox.x + photo.zone_bbox.x * photo.shark_bbox.w}
-                          y={photo.shark_bbox.y + photo.zone_bbox.y * photo.shark_bbox.h}
-                          width={photo.zone_bbox.w * photo.shark_bbox.w}
-                          height={photo.zone_bbox.h * photo.shark_bbox.h}
-                          fill="rgba(255,140,0,0.15)" stroke="#ff8c00" strokeWidth="0.003"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                ) : (
-                  <div className="photo-preview-box mb16">📷</div>
-                )}
-                {photo && canEdit && (
-                  <div className="mb16">
-                    <Link to={`/photos/${photo.id}`} className="btn btn-outline btn-sm">
-                      Edit Photo Annotation
-                    </Link>
-                  </div>
-                )}
-                <div className="exif-table">
-                  <div className="exif-row">
-                    <span className="exif-key">Shark</span>
-                    <span>
-                      {obs.shark_id ? (
-                        <Link to={`/sharks/${obs.shark_id}`} className="link">
-                          View shark
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
-                    </span>
-                  </div>
-                  <div className="exif-row">
-                    <span className="exif-key">Session</span>
-                    <span>
-                      {obs.dive_session_id ? (
-                        <Link
-                          to={`/dive-sessions/${obs.dive_session_id}`}
-                          className="link"
-                        >
-                          View session
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
-                    </span>
-                  </div>
-                  <div className="exif-row">
-                    <span className="exif-key">Location</span>
-                    <span>
-                      {obs.location_id && locMap[obs.location_id]
-                        ? `${locMap[obs.location_id].spot_name}, ${locMap[obs.location_id].country}`
-                        : '—'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Req8: collapsible EXIF panel */}
-                {exifEntries.length > 0 && (
-                  <div className="mt16">
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setExifOpen(v => !v)}
-                      style={{ fontSize: 12 }}
-                    >
-                      {exifOpen ? '▲ Hide EXIF data' : '▼ Show EXIF data'}
-                    </button>
-                    {exifOpen && (
-                      <div className="exif-table mt8" style={{ maxHeight: 300, overflowY: 'auto' }}>
-                        {exifEntries.map(([k, v]) => (
-                          <div key={k} className="exif-row">
-                            <span className="exif-key" style={{ fontSize: 11 }}>{k}</span>
-                            <span style={{ fontSize: 11, wordBreak: 'break-all' }}>
-                              {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+        {/* Right: editable form */}
+        <div className="card">
+          <div className="card-body">
+            <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
+              Details
             </div>
 
-            {/* Right: editable form */}
-            <div className="card">
-              <div className="card-body">
-                <div className="card-title" style={{ padding: 0, marginBottom: 16 }}>
-                  Details
-                </div>
-
-                {/* Req6: shark selector */}
-                <div className="form-group">
-                  <label className="form-label">Shark</label>
-                  <select
-                    value={form.shark_id}
-                    onChange={e => setForm(f => ({ ...f, shark_id: e.target.value }))}
-                    disabled={isReadOnly}
-                  >
-                    <option value="">— Not identified —</option>
-                    {sharks.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.display_name} ({s.name_status})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Req9: session selector */}
-                <div className="form-group">
-                  <label className="form-label">Dive Session</label>
-                  <select
-                    value={form.dive_session_id}
-                    onChange={e => setForm(f => ({ ...f, dive_session_id: e.target.value }))}
-                    disabled={isReadOnly}
-                  >
-                    <option value="">— No session —</option>
-                    {sessions.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {new Date(s.started_at).toLocaleDateString('en')}
-                        {s.comment ? ` — ${s.comment}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    value={form.taken_at}
-                    onChange={e => setForm(f => ({ ...f, taken_at: e.target.value }))}
-                    disabled={isReadOnly}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Location</label>
-                  <select
-                    value={form.location_id}
-                    onChange={e =>
-                      setForm(f => ({ ...f, location_id: e.target.value }))
-                    }
-                    disabled={isReadOnly}
-                  >
-                    <option value="">— No location —</option>
-                    {locations.map(l => (
-                      <option key={l.id} value={l.id}>
-                        {l.spot_name}, {l.country}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Comment</label>
-                  <textarea
-                    rows={3}
-                    value={form.comment}
-                    onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
-                    disabled={isReadOnly}
-                  />
-                </div>
-
-                {isConfirmed ? (
-                  <div className="confirmed-banner">
-                    ✓ Confirmed on{' '}
-                    {new Date(obs.confirmed_at!).toLocaleString('en')}
-                  </div>
-                ) : canEdit ? (
-                  <div className="flex-gap8">
-                    <button
-                      className="btn btn-outline"
-                      onClick={handleSave}
-                      disabled={saving}
-                    >
-                      Save Draft
-                    </button>
-                    <button
-                      className="btn btn-success"
-                      onClick={handleConfirm}
-                      disabled={saving}
-                    >
-                      Confirm Observation
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+            <div className="form-group">
+              <label className="form-label">Shark</label>
+              <select
+                value={form.shark_id}
+                onChange={e => setForm(f => ({ ...f, shark_id: e.target.value }))}
+                disabled={isReadOnly}
+              >
+                <option value="">— Not identified —</option>
+                {sharks.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.display_name} ({s.name_status})
+                  </option>
+                ))}
+              </select>
             </div>
+
+            <div className="form-group">
+              <label className="form-label">Dive Session</label>
+              <select
+                value={form.dive_session_id}
+                onChange={e => setForm(f => ({ ...f, dive_session_id: e.target.value }))}
+                disabled={isReadOnly}
+              >
+                <option value="">— No session —</option>
+                {sessions.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {new Date(s.started_at).toLocaleDateString('en')}
+                    {s.comment ? ` — ${s.comment}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Date & Time</label>
+              <input
+                type="datetime-local"
+                value={form.taken_at}
+                onChange={e => setForm(f => ({ ...f, taken_at: e.target.value }))}
+                disabled={isReadOnly}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Location</label>
+              <select
+                value={form.location_id}
+                onChange={e =>
+                  setForm(f => ({ ...f, location_id: e.target.value }))
+                }
+                disabled={isReadOnly}
+              >
+                <option value="">— No location —</option>
+                {locations.map(l => (
+                  <option key={l.id} value={l.id}>
+                    {l.spot_name}, {l.country}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Comment</label>
+              <textarea
+                rows={3}
+                value={form.comment}
+                onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
+                disabled={isReadOnly}
+              />
+            </div>
+
+            {isConfirmed ? (
+              <div className="confirmed-banner">
+                ✓ Confirmed on{' '}
+                {new Date(obs.confirmed_at!).toLocaleString('en')}
+              </div>
+            ) : canEdit ? (
+              <div className="flex-gap8">
+                <button
+                  className="btn btn-outline"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  Save Draft
+                </button>
+                <button
+                  className="btn btn-success"
+                  onClick={handleConfirm}
+                  disabled={saving}
+                >
+                  Confirm Observation
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
-    </div>
+    </PageLayout>
   )
 }
