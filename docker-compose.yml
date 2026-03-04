@@ -11,8 +11,8 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web console
+      - "127.0.0.1:9000:9000"   # S3 API — local only
+      - "127.0.0.1:9001:9001"   # Web console — local only
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -55,7 +55,7 @@ services:
       JWT_EXPIRY_HOURS:    ${JWT_EXPIRY_HOURS}
       PHOTO_BASE_URL:      ${PHOTO_BASE_URL}
     volumes:
-      - ./backend:/app      # live reload in dev
+      - ./backend:/app      # bind mount: code changes apply on restart (no rebuild needed)
     ports:
       - "127.0.0.1:${BACKEND_PORT}:8000"
     depends_on:
@@ -77,32 +77,14 @@ services:
       ML_CONFIDENCE_THRESHOLD: ${ML_CONFIDENCE_THRESHOLD:-0.5}
       VIDEO_FRAME_INTERVAL:    ${VIDEO_FRAME_INTERVAL:-2.0}
     volumes:
-      - ./ml:/app           # live reload in dev; /app/data holds embeddings.pkl
+      - ./ml:/app           # bind mount: code changes apply on restart; /app/data holds embeddings
     ports:
-      - "${ML_PORT}:8001"
+      - "127.0.0.1:${ML_PORT}:8001"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8001/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # ── React frontend (Vite dev server) ────────────────
-  frontend:
-    restart: unless-stopped
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    environment:
-      # VITE_API_URL is embedded into JS at request time by the Vite dev server.
-      # Browsers call the nginx entry point which proxies /api/ → backend.
-      VITE_API_URL: ${VITE_API_URL}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules   # preserve node_modules from the image layer
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
 
   # ── nginx (single entry point on port 80) ───────────
   nginx:
@@ -115,7 +97,6 @@ services:
       - "127.0.0.1:8081:80"
     depends_on:
       - backend
-      - frontend
 
 volumes:
   postgres_data:

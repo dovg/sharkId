@@ -25,7 +25,16 @@ Edit `.env` and set **real secrets** for production:
 | `ML_CONFIDENCE_THRESHOLD` | `0.5` is a good default; lower = more candidates |
 | `VIDEO_FRAME_INTERVAL` | Seconds between sampled frames (default `0.5`) |
 
-## 2. Build and start
+## 2. Build frontend
+
+```bash
+docker run --rm -v ./frontend:/app -v ./frontend-dist:/dist -w /app node:22-alpine \
+  sh -c "npm ci && VITE_API_URL=/api npx vite build --outDir /dist"
+```
+
+The built files are served by nginx from `frontend-dist/`.
+
+## 3. Build and start services
 
 ```bash
 docker compose build
@@ -34,7 +43,7 @@ docker compose up -d
 
 First build takes 5–10 minutes (ML service exports the EfficientNet-B0 ONNX model).
 
-## 3. Run database migrations
+## 4. Run database migrations
 
 ```bash
 docker compose exec backend alembic upgrade head
@@ -42,7 +51,7 @@ docker compose exec backend alembic upgrade head
 
 This creates all tables and extensions. Migrations are idempotent — safe to re-run.
 
-## 4. Create the first admin user
+## 5. Create the first admin user
 
 There is no registration UI. Bootstrap the admin from the command line:
 
@@ -50,12 +59,12 @@ There is no registration UI. Bootstrap the admin from the command line:
 docker compose exec backend python -c "
 from app.database import SessionLocal
 from app.models.user import User
-from app.auth.security import get_password_hash
+from app.auth.hashing import hash_password
 
 db = SessionLocal()
 user = User(
     email='admin@example.com',
-    hashed_password=get_password_hash('CHANGE_ME'),
+    password_hash=hash_password('CHANGE_ME'),
     role='admin'
 )
 db.add(user)
@@ -67,7 +76,7 @@ db.close()
 
 Replace `admin@example.com` and `CHANGE_ME` with real values. After login, use the Users page to create additional accounts.
 
-## 5. Verify
+## 6. Verify
 
 | Check | URL |
 |-------|-----|
@@ -84,7 +93,7 @@ curl -sf http://localhost/api/health       # {"status":"ok"}
 curl -sf http://localhost:8001/health      # {"status":"ok"}
 ```
 
-## 6. Routine operations
+## 7. Routine operations
 
 ### View logs
 
@@ -113,7 +122,7 @@ docker compose exec backend alembic upgrade head
 docker compose exec backend alembic revision --autogenerate -m "description"
 ```
 
-## 7. Backups
+## 8. Backups
 
 Two scripts are provided in `scripts/`. Both read credentials from `.env`.
 
@@ -140,16 +149,17 @@ gunzip -c backups/db/sharks_XXXXXXXX_XXXXXX.sql.gz \
   | docker compose exec -T db psql -U sharks sharks
 ```
 
-## 8. Updating to a new version
+## 9. Updating to a new version
 
 ```bash
 git pull
+docker run --rm -v ./frontend:/app -v ./frontend-dist:/dist -w /app node:22-alpine sh -c "npm ci && VITE_API_URL=/api npx vite build --outDir /dist"
 docker compose build
 docker compose up -d
 docker compose exec backend alembic upgrade head
 ```
 
-## 9. Stopping and cleanup
+## 10. Stopping and cleanup
 
 ```bash
 docker compose down              # stop all services, keep data
@@ -162,7 +172,7 @@ docker compose down -v           # stop and DELETE all data (volumes)
 Browser ──► nginx:80
               ├── /photos/*  ──► MinIO:9000   (static photo files)
               ├── /api/*     ──► Backend:8000  (FastAPI REST API)
-              └── /*         ──► Frontend:5173 (React/Vite)
+              └── /*         ──► frontend-dist/ (pre-built React SPA)
 
 Backend:8000 ──► PostgreSQL:5432  (data)
              ──► MinIO:9000       (file storage)
@@ -178,4 +188,4 @@ Backend:8000 ──► PostgreSQL:5432  (data)
 | `502 Bad Gateway` after restart | Wait 10–15 s for backend/ML health checks to pass; check `docker compose ps` |
 | Photos not loading | Verify `PHOTO_BASE_URL` matches your domain; check MinIO is healthy |
 | Migration fails | Check `docker compose logs backend` for details; ensure DB is reachable |
-| Forgot admin password | Create a new admin user with the bootstrap command from step 4 |
+| Forgot admin password | Create a new admin user with the bootstrap command from step 5 |

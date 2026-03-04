@@ -24,7 +24,12 @@ ml/data/*.pkl
 ml/data/*.pt
 ml/data/*.pth
 ml/data/*.bin
+ml/data/*.npy
+ml/data/*.json
 !ml/data/.gitkeep
+
+# ── Built frontend ───────────────────────────────────────
+frontend-dist/
 
 # ── Node / Frontend ───────────────────────────────────────
 node_modules/

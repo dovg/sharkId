@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     minio_bucket: str
     ml_service_url: str
     photo_base_url: str = ""   # when set, photos served via nginx instead of presigned URLs
+    cors_origins: str = "http://localhost,http://localhost:3000,http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
